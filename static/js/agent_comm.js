@@ -23,6 +23,8 @@ async function populateAgentSelects() {
     
     [senderSelect, receiverSelect, convAgent1, convAgent2].forEach(select => {
         if (!select) return;
+        // Preserve the currently selected value
+        const currentValue = select.value;
         select.innerHTML = '<option value="">Select agent...</option>';
         agents.forEach(agent => {
             const option = document.createElement('option');
@@ -30,6 +32,10 @@ async function populateAgentSelects() {
             option.textContent = agent.name;
             select.appendChild(option);
         });
+        // Restore the selected value if it still exists
+        if (currentValue && agents.some(agent => agent.name === currentValue)) {
+            select.value = currentValue;
+        }
     });
 }
 
@@ -44,14 +50,16 @@ async function loadMessageHistory() {
         
         interactions.reverse().forEach(interaction => {
             const messageDiv = document.createElement('div');
-            messageDiv.className = 'message-item';
+            messageDiv.className = 'bg-slate-50 hover:bg-slate-100 rounded-lg p-4 border-l-4 border-indigo-500 transition-colors duration-200';
             messageDiv.innerHTML = `
-                <div class="message-header">
-                    <strong>${interaction.agent_name}</strong>
-                    ${interaction.related_agent ? `→ <strong>${interaction.related_agent}</strong>` : ''}
-                    <span class="timestamp">${new Date(interaction.timestamp).toLocaleString()}</span>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <strong class="text-indigo-600">${interaction.agent_name}</strong>
+                        ${interaction.related_agent ? `<span class="text-slate-400">→</span><strong class="text-indigo-600">${interaction.related_agent}</strong>` : ''}
+                    </div>
+                    <span class="text-xs text-slate-500">${new Date(interaction.timestamp).toLocaleString()}</span>
                 </div>
-                <div class="message-content">${interaction.content}</div>
+                <div class="text-slate-700 whitespace-pre-wrap">${interaction.content}</div>
             `;
             messageHistory.appendChild(messageDiv);
         });
@@ -151,15 +159,15 @@ if (conversationForm) {
         // Start conversation
         conversationInProgress = true;
         conversationAborted = false;
-        conversationForm.style.display = 'none';
-        conversationStatus.style.display = 'block';
+        conversationForm.classList.add('hidden');
+        conversationStatus.classList.remove('hidden');
         
         updateConversationStatus(0, rounds, 'Sending request to server...');
         
         const btnText = startConversationBtn.querySelector('.btn-text');
         const btnSpinner = startConversationBtn.querySelector('.btn-spinner');
-        btnText.style.display = 'none';
-        btnSpinner.style.display = 'inline';
+        btnText.classList.add('hidden');
+        btnSpinner.classList.remove('hidden');
         startConversationBtn.disabled = true;
         
         // Update status periodically while waiting
@@ -254,10 +262,10 @@ if (conversationForm) {
         } finally {
             setTimeout(() => {
                 conversationInProgress = false;
-                conversationForm.style.display = 'block';
-                conversationStatus.style.display = 'none';
-                btnText.style.display = 'inline';
-                btnSpinner.style.display = 'none';
+                conversationForm.classList.remove('hidden');
+                conversationStatus.classList.add('hidden');
+                btnText.classList.remove('hidden');
+                btnSpinner.classList.add('hidden');
                 startConversationBtn.disabled = false;
                 conversationForm.reset();
             }, 2000);
@@ -291,24 +299,29 @@ function updateConversationStatus(currentRound, totalRounds, statusText) {
 
 function showNotification(message, type = 'info') {
     // Remove existing notifications
-    const existing = document.querySelector('.notification');
+    const existing = document.querySelector('.notification-toast');
     if (existing) {
         existing.remove();
     }
     
     const notification = document.createElement('div');
-    notification.className = `notification notification-${type}`;
+    const bgColors = {
+        'success': 'bg-green-500',
+        'error': 'bg-red-500',
+        'info': 'bg-blue-500'
+    };
+    notification.className = `notification-toast fixed top-4 right-4 z-50 px-6 py-4 rounded-lg shadow-lg text-white font-medium transform translate-x-full transition-transform duration-300 ${bgColors[type] || bgColors.info}`;
     notification.textContent = message;
     document.body.appendChild(notification);
     
     // Animate in
     setTimeout(() => {
-        notification.classList.add('show');
+        notification.classList.remove('translate-x-full');
     }, 10);
     
     // Remove after 3 seconds
     setTimeout(() => {
-        notification.classList.remove('show');
+        notification.classList.add('translate-x-full');
         setTimeout(() => {
             notification.remove();
         }, 300);

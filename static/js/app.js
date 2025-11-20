@@ -57,15 +57,21 @@ if (document.getElementById('agentList')) {
         
         agents.forEach(agent => {
             const agentItem = document.createElement('div');
-            agentItem.className = 'agent-item';
+            agentItem.className = 'bg-slate-50 hover:bg-slate-100 rounded-lg p-4 transition-colors duration-200 border border-slate-200';
             agentItem.innerHTML = `
-                <div class="agent-item-content">
-                    <h3>${agent.name}</h3>
-                    <p>Model: ${agent.model}</p>
-                </div>
-                <div class="agent-item-actions">
-                    <a href="/chat/${agent.name}" class="btn btn-small">Chat</a>
-                    <button class="btn btn-small btn-danger" onclick="deleteAgentHandler('${agent.name}')">Delete</button>
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <h3 class="font-semibold text-slate-900 mb-1">${agent.name}</h3>
+                        <p class="text-sm text-slate-600">Model: ${agent.model}</p>
+                    </div>
+                    <div class="flex gap-2 ml-4">
+                        <a href="/chat/${agent.name}" class="px-3 py-1.5 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-sm font-medium rounded-lg transition-colors duration-200">
+                            Chat
+                        </a>
+                        <button class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-colors duration-200" onclick="deleteAgentHandler('${agent.name}')">
+                            Delete
+                        </button>
+                    </div>
                 </div>
             `;
             agentList.appendChild(agentItem);
@@ -80,13 +86,22 @@ if (document.getElementById('agentList')) {
     
     if (createAgentBtn) {
         createAgentBtn.addEventListener('click', () => {
-            createAgentModal.style.display = 'block';
+            createAgentModal.classList.remove('hidden');
         });
     }
     
     if (closeModal) {
         closeModal.addEventListener('click', () => {
-            createAgentModal.style.display = 'none';
+            createAgentModal.classList.add('hidden');
+        });
+    }
+    
+    // Close modal when clicking outside
+    if (createAgentModal) {
+        createAgentModal.addEventListener('click', (e) => {
+            if (e.target === createAgentModal) {
+                createAgentModal.classList.add('hidden');
+            }
         });
     }
     
@@ -106,7 +121,7 @@ if (document.getElementById('agentList')) {
             
             try {
                 await createAgent(agentData);
-                createAgentModal.style.display = 'none';
+                createAgentModal.classList.add('hidden');
                 createAgentForm.reset();
                 renderAgents();
             } catch (error) {

@@ -14,7 +14,10 @@ async function loadAgents() {
 async function populateAgentFilter() {
     const agents = await loadAgents();
     const filterAgent = document.getElementById('filterAgent');
+    if (!filterAgent) return;
     
+    // Preserve the currently selected value
+    const currentValue = filterAgent.value;
     filterAgent.innerHTML = '<option value="">All Agents</option>';
     agents.forEach(agent => {
         const option = document.createElement('option');
@@ -22,6 +25,10 @@ async function populateAgentFilter() {
         option.textContent = agent.name;
         filterAgent.appendChild(option);
     });
+    // Restore the selected value if it still exists
+    if (currentValue && agents.some(agent => agent.name === currentValue)) {
+        filterAgent.value = currentValue;
+    }
 }
 
 async function loadKnowledge() {
@@ -60,15 +67,19 @@ async function loadKnowledge() {
             }[interaction.interaction_type] || '📝';
             
             itemDiv.innerHTML = `
-                <div class="knowledge-header">
-                    <span class="type-icon">${typeIcon}</span>
-                    <strong>${interaction.agent_name}</strong>
-                    ${interaction.related_agent ? `→ <strong>${interaction.related_agent}</strong>` : ''}
-                    <span class="type-badge">${interaction.interaction_type}</span>
-                    <span class="timestamp">${new Date(interaction.timestamp).toLocaleString()}</span>
+                <div class="bg-slate-50 hover:bg-slate-100 rounded-lg p-5 border-l-4 border-indigo-500 transition-colors duration-200">
+                    <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-xl">${typeIcon}</span>
+                            <strong class="text-indigo-600">${interaction.agent_name}</strong>
+                            ${interaction.related_agent ? `<span class="text-slate-400">→</span><strong class="text-indigo-600">${interaction.related_agent}</strong>` : ''}
+                            <span class="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs font-medium rounded-full">${interaction.interaction_type}</span>
+                        </div>
+                        <span class="text-xs text-slate-500">${new Date(interaction.timestamp).toLocaleString()}</span>
+                    </div>
+                    <div class="text-slate-700 whitespace-pre-wrap mb-3">${interaction.content}</div>
+                    ${interaction.metadata ? `<div class="mt-3 p-3 bg-slate-100 rounded-lg"><pre class="text-xs text-slate-600 overflow-x-auto">${JSON.stringify(interaction.metadata, null, 2)}</pre></div>` : ''}
                 </div>
-                <div class="knowledge-content">${interaction.content}</div>
-                ${interaction.metadata ? `<div class="knowledge-metadata"><pre>${JSON.stringify(interaction.metadata, null, 2)}</pre></div>` : ''}
             `;
             knowledgeList.appendChild(itemDiv);
         });

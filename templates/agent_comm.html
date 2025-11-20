@@ -4,105 +4,121 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent Communication</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        * { font-family: 'Inter', sans-serif; }
+    </style>
 </head>
-<body>
-    <div class="container">
-        <header>
-            <h1>📡 Agent Communication</h1>
-            <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+<body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 min-h-screen">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <header class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">Agent Communication</h1>
+                    <p class="text-slate-600 mt-1">Enable agents to communicate with each other</p>
+                </div>
+                <a href="/" class="inline-flex items-center px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
+                    ← Back to Dashboard
+                </a>
+            </div>
         </header>
 
-        <div class="main-content">
-            <div class="comm-container">
-                <div class="comm-panel">
-                    <h2>Agent Communication</h2>
-                    
-                    <!-- Single Message Form -->
-                    <div class="form-section">
-                        <h3>Send Single Message</h3>
-                        <form id="agentMessageForm">
-                            <div class="form-group">
-                                <label for="senderAgent">From Agent:</label>
-                                <select id="senderAgent" name="sender" required>
-                                    <option value="">Select sender...</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="receiverAgent">To Agent:</label>
-                                <select id="receiverAgent" name="receiver" required>
-                                    <option value="">Select receiver...</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="messageContent">Message:</label>
-                                <textarea id="messageContent" name="message" rows="4" required></textarea>
-                            </div>
-                            <button type="submit" class="btn btn-primary">Send Message</button>
-                        </form>
-                    </div>
-                    
-                    <div class="divider"></div>
-                    
-                    <!-- Multi-Round Conversation Form -->
-                    <div class="form-section">
-                        <h3>Start Multi-Round Conversation</h3>
-                        <form id="conversationForm">
-                            <div class="form-group">
-                                <label for="convAgent1">Agent 1:</label>
-                                <select id="convAgent1" name="agent1" required>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6">
+                <h2 class="text-xl font-semibold text-slate-900 mb-6">Agent Communication</h2>
+                
+                <!-- Single Message Form -->
+                <div class="mb-8 pb-8 border-b border-slate-200">
+                    <h3 class="text-lg font-medium text-slate-800 mb-4">Send Single Message</h3>
+                    <form id="agentMessageForm" class="space-y-4">
+                        <div>
+                            <label for="senderAgent" class="block text-sm font-medium text-slate-700 mb-2">From Agent</label>
+                            <select id="senderAgent" name="sender" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
+                                <option value="">Select sender...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="receiverAgent" class="block text-sm font-medium text-slate-700 mb-2">To Agent</label>
+                            <select id="receiverAgent" name="receiver" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
+                                <option value="">Select receiver...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="messageContent" class="block text-sm font-medium text-slate-700 mb-2">Message</label>
+                            <textarea id="messageContent" name="message" rows="4" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
+                            Send Message
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Multi-Round Conversation Form -->
+                <div>
+                    <h3 class="text-lg font-medium text-slate-800 mb-4">Start Multi-Round Conversation</h3>
+                    <form id="conversationForm" class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="convAgent1" class="block text-sm font-medium text-slate-700 mb-2">Agent 1</label>
+                                <select id="convAgent1" name="agent1" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
                                     <option value="">Select agent...</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label for="convAgent2">Agent 2:</label>
-                                <select id="convAgent2" name="agent2" required>
+                            <div>
+                                <label for="convAgent2" class="block text-sm font-medium text-slate-700 mb-2">Agent 2</label>
+                                <select id="convAgent2" name="agent2" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
                                     <option value="">Select agent...</option>
                                 </select>
                             </div>
-                            <div class="form-group">
-                                <label for="initialMessage">Initial Message (from Agent 1):</label>
-                                <textarea id="initialMessage" name="initial_message" rows="4" required placeholder="Enter the first message that Agent 1 will send..."></textarea>
-                            </div>
-                            <div class="form-group">
-                                <label for="rounds">Number of Rounds:</label>
-                                <input type="number" id="rounds" name="rounds" value="3" min="1" max="20" required>
-                                <small class="form-hint">Each agent will respond in turn. Total messages = rounds × 2</small>
-                            </div>
-                            <button type="submit" class="btn btn-primary" id="startConversationBtn">
-                                <span class="btn-text">Start Conversation</span>
-                                <span class="btn-spinner" style="display: none;">⏳</span>
-                            </button>
-                        </form>
+                        </div>
+                        <div>
+                            <label for="initialMessage" class="block text-sm font-medium text-slate-700 mb-2">Initial Message (from Agent 1)</label>
+                            <textarea id="initialMessage" name="initial_message" rows="4" required placeholder="Enter the first message that Agent 1 will send..." class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
+                        </div>
+                        <div>
+                            <label for="rounds" class="block text-sm font-medium text-slate-700 mb-2">Number of Rounds</label>
+                            <input type="number" id="rounds" name="rounds" value="3" min="1" max="20" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                            <p class="mt-1 text-xs text-slate-500">Each agent will respond in turn. Total messages = rounds × 2</p>
+                        </div>
+                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md" id="startConversationBtn">
+                            <span class="btn-text">Start Conversation</span>
+                            <span class="btn-spinner hidden">⏳</span>
+                        </button>
+                    </form>
+                </div>
+                
+                <!-- Conversation Status -->
+                <div id="conversationStatus" class="hidden mt-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-lg font-semibold text-indigo-900">Conversation in Progress</h3>
+                        <button id="cancelConversationBtn" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-colors duration-200">
+                            Cancel
+                        </button>
                     </div>
-                    
-                    <!-- Conversation Status -->
-                    <div id="conversationStatus" class="conversation-status" style="display: none;">
-                        <div class="status-header">
-                            <h3>Conversation in Progress</h3>
-                            <button id="cancelConversationBtn" class="btn btn-danger btn-small">Cancel</button>
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <span class="text-sm font-medium text-slate-600">Round:</span>
+                            <span id="currentRound" class="text-sm font-semibold text-slate-900">0</span>
+                            <span class="text-sm text-slate-500">/</span>
+                            <span id="totalRounds" class="text-sm font-semibold text-slate-900">0</span>
                         </div>
-                        <div class="status-info">
-                            <div class="status-item">
-                                <span class="status-label">Round:</span>
-                                <span id="currentRound">0</span> / <span id="totalRounds">0</span>
-                            </div>
-                            <div class="status-item">
-                                <span class="status-label">Status:</span>
-                                <span id="conversationStatusText">Waiting...</span>
-                            </div>
+                        <div>
+                            <span class="text-sm font-medium text-slate-600">Status:</span>
+                            <span id="conversationStatusText" class="text-sm font-semibold text-slate-900">Waiting...</span>
                         </div>
-                        <div class="progress-bar">
-                            <div id="progressFill" class="progress-fill"></div>
-                        </div>
+                    </div>
+                    <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                        <div id="progressFill" class="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-300" style="width: 0%"></div>
                     </div>
                 </div>
+            </div>
 
-                <div class="comm-panel">
-                    <h2>Message History</h2>
-                    <div id="messageHistory" class="message-history">
-                        <!-- Messages will appear here -->
-                    </div>
+            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6">
+                <h2 class="text-xl font-semibold text-slate-900 mb-6">Message History</h2>
+                <div id="messageHistory" class="space-y-3 max-h-[800px] overflow-y-auto">
+                    <!-- Messages will appear here -->
                 </div>
             </div>
         </div>

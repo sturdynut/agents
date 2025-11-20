@@ -14,7 +14,7 @@ if (!agentName) {
     document.addEventListener('DOMContentLoaded', () => {
         const chatMessages = document.getElementById('chatMessages');
         if (chatMessages) {
-            chatMessages.innerHTML = '<div class="message agent-message error" style="color: red; padding: 10px;">Error: Agent name not found. Please go back and try again.</div>';
+            chatMessages.innerHTML = '<div class="flex justify-start"><div class="max-w-[70%] bg-red-50 text-red-700 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm"><p class="text-sm">Error: Agent name not found. Please go back and try again.</p></div></div>';
         }
     });
 }
@@ -42,15 +42,23 @@ async function loadChatHistory() {
             
             if (userMsg) {
                 const userMessageDiv = document.createElement('div');
-                userMessageDiv.className = 'message user-message';
-                userMessageDiv.textContent = userMsg;
+                userMessageDiv.className = 'flex justify-end';
+                userMessageDiv.innerHTML = `
+                    <div class="max-w-[70%] bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-sm">
+                        <p class="text-sm whitespace-pre-wrap">${userMsg}</p>
+                    </div>
+                `;
                 chatMessages.appendChild(userMessageDiv);
             }
             
             if (agentMsg) {
                 const agentMessageDiv = document.createElement('div');
-                agentMessageDiv.className = 'message agent-message';
-                agentMessageDiv.textContent = agentMsg;
+                agentMessageDiv.className = 'flex justify-start';
+                agentMessageDiv.innerHTML = `
+                    <div class="max-w-[70%] bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                        <p class="text-sm whitespace-pre-wrap">${agentMsg}</p>
+                    </div>
+                `;
                 chatMessages.appendChild(agentMessageDiv);
             }
         });
@@ -100,8 +108,12 @@ async function sendMessage(message) {
 function addMessageToChat(message, isUser = true) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
-    messageDiv.className = `message ${isUser ? 'user-message' : 'agent-message'}`;
-    messageDiv.textContent = message;
+    messageDiv.className = isUser ? 'flex justify-end' : 'flex justify-start';
+    messageDiv.innerHTML = `
+        <div class="max-w-[70%] ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-900'} rounded-2xl ${isUser ? 'rounded-br-sm' : 'rounded-bl-sm'} px-4 py-3 shadow-sm">
+            <p class="text-sm whitespace-pre-wrap">${message}</p>
+        </div>
+    `;
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -152,8 +164,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const loadingId = 'loading-' + Date.now();
         const loadingDiv = document.createElement('div');
         loadingDiv.id = loadingId;
-        loadingDiv.className = 'message agent-message';
-        loadingDiv.textContent = 'Thinking...';
+        loadingDiv.className = 'flex justify-start';
+        loadingDiv.innerHTML = `
+            <div class="max-w-[70%] bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                <p class="text-sm">Thinking...</p>
+            </div>
+        `;
         document.getElementById('chatMessages').appendChild(loadingDiv);
         document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
         
@@ -254,14 +270,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await response.json();
                 if (fileResult) {
                     if (data.success) {
-                        fileResult.innerHTML = `<pre>${data.content}</pre>`;
+                        fileResult.innerHTML = `<pre class="text-xs text-slate-700 whitespace-pre-wrap">${data.content}</pre>`;
                     } else {
-                        fileResult.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                        fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${data.error}</p>`;
                     }
                 }
             } catch (error) {
                 if (fileResult) {
-                    fileResult.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                    fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${error.message}</p>`;
                 }
             }
         });
@@ -279,14 +295,14 @@ document.addEventListener('DOMContentLoaded', () => {
                         const items = data.items.map(item => 
                             `${item.type === 'directory' ? '📁' : '📄'} ${item.name}${item.size ? ` (${item.size} bytes)` : ''}`
                         ).join('\n');
-                        fileResult.innerHTML = `<pre>${items}</pre>`;
+                        fileResult.innerHTML = `<pre class="text-xs text-slate-700 whitespace-pre-wrap">${items}</pre>`;
                     } else {
-                        fileResult.innerHTML = `<p class="error">Error: ${data.error}</p>`;
+                        fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${data.error}</p>`;
                     }
                 }
             } catch (error) {
                 if (fileResult) {
-                    fileResult.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+                    fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${error.message}</p>`;
                 }
             }
         });
@@ -323,7 +339,7 @@ if (agentName) {
         const chatInput = document.getElementById('chatInput');
         
         if (chatMessages) {
-            chatMessages.innerHTML = '<div class="message agent-message error" style="color: red; padding: 10px;">Error: Agent name not found. Please go back to the dashboard and try again.</div>';
+            chatMessages.innerHTML = '<div class="flex justify-start"><div class="max-w-[70%] bg-red-50 text-red-700 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm"><p class="text-sm">Error: Agent name not found. Please go back to the dashboard and try again.</p></div></div>';
         }
         if (sendBtn) {
             sendBtn.disabled = true;
