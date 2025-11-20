@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Knowledge Base</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📚 Knowledge Base</h1>
+            <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+        </header>
+
+        <div class="main-content">
+            <div class="knowledge-container">
+                <div class="filters-panel">
+                    <h2>Filters</h2>
+                    <div class="form-group">
+                        <label for="filterAgent">Agent:</label>
+                        <select id="filterAgent">
+                            <option value="">All Agents</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="filterType">Interaction Type:</label>
+                        <select id="filterType">
+                            <option value="">All Types</option>
+                            <option value="user_chat">User Chat</option>
+                            <option value="agent_chat">Agent Chat</option>
+                            <option value="task_execution">Task Execution</option>
+                            <option value="file_operation">File Operation</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="searchTerm">Search:</label>
+                        <input type="text" id="searchTerm" placeholder="Search content...">
+                    </div>
+                    <button id="applyFiltersBtn" class="btn btn-primary">Apply Filters</button>
+                    <button id="clearFiltersBtn" class="btn btn-secondary">Clear</button>
+                </div>
+
+                <div class="knowledge-content">
+                    <h2>Interactions</h2>
+                    <div id="knowledgeList" class="knowledge-list">
+                        <!-- Knowledge entries will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/knowledge.js') }}"></script>
+</body>
+</html>
+

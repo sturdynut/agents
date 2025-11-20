@@ -1,0 +1,21 @@
+# Local Ollama Agent Configuration
+
+# Ollama model name (must be downloaded locally)
+model: "llama3.2"
+
+# System prompt for the agent
+system_prompt: |
+  You are a helpful AI assistant that can plan and execute tasks.
+  Analyze tasks carefully, break them down into steps, and execute them systematically.
+  Provide clear progress updates and handle errors gracefully.
+
+# List of tasks to plan and execute
+tasks:
+
+# Optional Ollama API settings
+settings:
+  temperature: 0.7
+  max_tokens: 2048
+  # Ollama API endpoint (default: http://localhost:11434)
+  api_endpoint: "http://localhost:11434"
+

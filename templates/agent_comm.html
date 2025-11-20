@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Communication</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📡 Agent Communication</h1>
+            <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+        </header>
+
+        <div class="main-content">
+            <div class="comm-container">
+                <div class="comm-panel">
+                    <h2>Send Message</h2>
+                    <form id="agentMessageForm">
+                        <div class="form-group">
+                            <label for="senderAgent">From Agent:</label>
+                            <select id="senderAgent" name="sender" required>
+                                <option value="">Select sender...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="receiverAgent">To Agent:</label>
+                            <select id="receiverAgent" name="receiver" required>
+                                <option value="">Select receiver...</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="messageContent">Message:</label>
+                            <textarea id="messageContent" name="message" rows="4" required></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Send Message</button>
+                    </form>
+                </div>
+
+                <div class="comm-panel">
+                    <h2>Message History</h2>
+                    <div id="messageHistory" class="message-history">
+                        <!-- Messages will appear here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/agent_comm.js') }}"></script>
+</body>
+</html>
+

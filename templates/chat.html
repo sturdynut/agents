@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat with {{ agent_name }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💬 Chat: {{ agent_name }}</h1>
+            <a href="/" class="btn btn-secondary">← Back to Dashboard</a>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h3>Agent Info</h3>
+                    <div id="agentInfo">
+                        <p><strong>Name:</strong> {{ agent_name }}</p>
+                        <p id="agentModel">Loading...</p>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>Tasks</h3>
+                    <div id="taskPanel">
+                        <textarea id="taskInput" placeholder="Enter task to execute..." rows="3"></textarea>
+                        <button id="executeTaskBtn" class="btn btn-primary">Execute Task</button>
+                    </div>
+                </div>
+
+                <div class="sidebar-section">
+                    <h3>File Operations</h3>
+                    <div id="filePanel">
+                        <input type="text" id="filePath" placeholder="File path...">
+                        <button id="readFileBtn" class="btn btn-secondary">Read</button>
+                        <button id="listDirBtn" class="btn btn-secondary">List Dir</button>
+                        <div id="fileResult"></div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="content-area">
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <!-- Messages will appear here -->
+                    </div>
+                    <div class="chat-input-container">
+                        <input type="text" id="chatInput" placeholder="Type your message..." autocomplete="off">
+                        <button id="sendBtn" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script>
+        window.agentName = '{{ agent_name }}';
+    </script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+</body>
+</html>
+

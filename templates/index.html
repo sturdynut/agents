@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent System</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Multi-Agent System</h1>
+            <p>Manage and interact with multiple AI agents</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <div class="sidebar-section">
+                    <h2>Agents</h2>
+                    <button id="createAgentBtn" class="btn btn-primary">+ Create Agent</button>
+                    <div id="agentList" class="agent-list">
+                        <!-- Agents will be loaded here -->
+                    </div>
+                </div>
+            </aside>
+
+            <main class="content-area">
+                <div id="dashboard" class="dashboard">
+                    <div class="welcome-section">
+                        <h2>Welcome to the Multi-Agent System</h2>
+                        <p>Create agents, chat with them, and let them collaborate!</p>
+                    </div>
+
+                    <div class="stats-section">
+                        <div class="stat-card">
+                            <h3 id="agentCount">0</h3>
+                            <p>Active Agents</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3 id="messageCount">0</h3>
+                            <p>Total Messages</p>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <a href="/agent-comm" class="btn btn-secondary">Agent Communication</a>
+                        <a href="/knowledge" class="btn btn-secondary">Knowledge Base</a>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Create Agent Modal -->
+    <div id="createAgentModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Create New Agent</h2>
+            <form id="createAgentForm">
+                <div class="form-group">
+                    <label for="agentName">Agent Name:</label>
+                    <input type="text" id="agentName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="agentModel">Model:</label>
+                    <input type="text" id="agentModel" name="model" value="llama3.2" required>
+                </div>
+                <div class="form-group">
+                    <label for="systemPrompt">System Prompt:</label>
+                    <textarea id="systemPrompt" name="system_prompt" rows="4" placeholder="You are a helpful AI assistant..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="temperature">Temperature:</label>
+                    <input type="number" id="temperature" name="temperature" value="0.7" min="0" max="2" step="0.1">
+                </div>
+                <div class="form-group">
+                    <label for="maxTokens">Max Tokens:</label>
+                    <input type="number" id="maxTokens" name="max_tokens" value="2048" min="100" max="8192">
+                </div>
+                <button type="submit" class="btn btn-primary">Create Agent</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+
