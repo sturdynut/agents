@@ -7,6 +7,7 @@ Main web application for the multi-agent system with REST API and WebSocket supp
 
 import os
 import logging
+from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from knowledge_base import KnowledgeBase
@@ -221,6 +222,141 @@ def send_agent_message(sender_name, receiver_name):
         })
     else:
         return jsonify({'error': 'Failed to send message'}), 500
+
+
+@app.route('/api/agents/<agent1_name>/conversation/<agent2_name>', methods=['POST'])
+def start_agent_conversation(agent1_name, agent2_name):
+    """Start a multi-round conversation between two agents."""
+    app.logger.info(f"Starting conversation between {agent1_name} and {agent2_name}")
+    
+    if not agent_manager.agent_exists(agent1_name):
+        return jsonify({'error': 'Agent 1 not found'}), 404
+    
+    if not agent_manager.agent_exists(agent2_name):
+        return jsonify({'error': 'Agent 2 not found'}), 404
+    
+    data = request.json
+    initial_message = data.get('initial_message', '')
+    rounds = data.get('rounds', 1)
+    
+    if not initial_message:
+        return jsonify({'error': 'Initial message is required'}), 400
+    
+    if rounds < 1 or rounds > 20:
+        return jsonify({'error': 'Rounds must be between 1 and 20'}), 400
+    
+    agent1 = agent_manager.get_agent(agent1_name)
+    agent2 = agent_manager.get_agent(agent2_name)
+    
+    # Verify agents are registered in message bus
+    if agent1_name not in message_bus.agent_registry:
+        app.logger.warning(f"Agent {agent1_name} not in message bus registry, registering now")
+        message_bus.register_agent(agent1_name, agent1)
+    
+    if agent2_name not in message_bus.agent_registry:
+        app.logger.warning(f"Agent {agent2_name} not in message bus registry, registering now")
+        message_bus.register_agent(agent2_name, agent2)
+    
+    conversation_log = []
+    current_sender = agent1_name
+    current_receiver = agent2_name
+    current_message = initial_message
+    
+    try:
+        for round_num in range(rounds):
+            app.logger.info(f"Round {round_num + 1}/{rounds}: {current_sender} -> {current_receiver}")
+            
+            # Send message from current sender to current receiver
+            try:
+                success = message_bus.send_message(current_sender, current_receiver, current_message)
+                if not success:
+                    error_msg = f'Failed to send message in round {round_num + 1}. Receiver may not be registered.'
+                    app.logger.error(error_msg)
+                    return jsonify({
+                        'error': error_msg,
+                        'conversation': conversation_log,
+                        'failed_at_round': round_num + 1
+                    }), 500
+            except Exception as e:
+                error_msg = f'Error sending message in round {round_num + 1}: {str(e)}'
+                app.logger.error(error_msg, exc_info=True)
+                return jsonify({
+                    'error': error_msg,
+                    'conversation': conversation_log,
+                    'failed_at_round': round_num + 1
+                }), 500
+            
+            conversation_log.append({
+                'round': round_num + 1,
+                'sender': current_sender,
+                'receiver': current_receiver,
+                'message': current_message,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+            # Get the receiving agent and have it respond
+            if current_receiver == agent1_name:
+                receiving_agent = agent1
+            else:
+                receiving_agent = agent2
+            
+            # Have the receiving agent respond
+            app.logger.info(f"Getting response from {current_receiver}...")
+            try:
+                response = receiving_agent.respond_to_agent_message(current_sender, current_message)
+                app.logger.info(f"Received response from {current_receiver} (length: {len(response) if response else 0})")
+            except Exception as e:
+                error_msg = f'Error getting response from {current_receiver} in round {round_num + 1}: {str(e)}'
+                app.logger.error(error_msg, exc_info=True)
+                return jsonify({
+                    'error': error_msg,
+                    'conversation': conversation_log,
+                    'failed_at_round': round_num + 1
+                }), 500
+            
+            if not response:
+                error_msg = f'Empty response from {current_receiver} in round {round_num + 1}'
+                app.logger.error(error_msg)
+                return jsonify({
+                    'error': error_msg,
+                    'conversation': conversation_log,
+                    'failed_at_round': round_num + 1
+                }), 500
+            
+            # Store the response in message bus
+            try:
+                message_bus.send_message(current_receiver, current_sender, response)
+            except Exception as e:
+                app.logger.warning(f"Error storing response in message bus: {str(e)}")
+                # Continue anyway as the response was generated
+            
+            conversation_log.append({
+                'round': round_num + 1,
+                'sender': current_receiver,
+                'receiver': current_sender,
+                'message': response,
+                'timestamp': datetime.utcnow().isoformat()
+            })
+            
+            # Switch roles for next round
+            current_sender, current_receiver = current_receiver, current_sender
+            current_message = response
+        
+        app.logger.info(f"Conversation completed successfully: {len(conversation_log)} messages")
+        return jsonify({
+            'success': True,
+            'conversation': conversation_log,
+            'total_rounds': rounds,
+            'agent1': agent1_name,
+            'agent2': agent2_name
+        })
+    except Exception as e:
+        error_msg = f'Error during conversation: {str(e)}'
+        app.logger.error(error_msg, exc_info=True)
+        return jsonify({
+            'error': error_msg,
+            'conversation': conversation_log
+        }), 500
 
 
 @app.route('/api/agents/<agent_name>/messages', methods=['GET'])

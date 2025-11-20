@@ -16,26 +16,86 @@
         <div class="main-content">
             <div class="comm-container">
                 <div class="comm-panel">
-                    <h2>Send Message</h2>
-                    <form id="agentMessageForm">
-                        <div class="form-group">
-                            <label for="senderAgent">From Agent:</label>
-                            <select id="senderAgent" name="sender" required>
-                                <option value="">Select sender...</option>
-                            </select>
+                    <h2>Agent Communication</h2>
+                    
+                    <!-- Single Message Form -->
+                    <div class="form-section">
+                        <h3>Send Single Message</h3>
+                        <form id="agentMessageForm">
+                            <div class="form-group">
+                                <label for="senderAgent">From Agent:</label>
+                                <select id="senderAgent" name="sender" required>
+                                    <option value="">Select sender...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="receiverAgent">To Agent:</label>
+                                <select id="receiverAgent" name="receiver" required>
+                                    <option value="">Select receiver...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="messageContent">Message:</label>
+                                <textarea id="messageContent" name="message" rows="4" required></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-primary">Send Message</button>
+                        </form>
+                    </div>
+                    
+                    <div class="divider"></div>
+                    
+                    <!-- Multi-Round Conversation Form -->
+                    <div class="form-section">
+                        <h3>Start Multi-Round Conversation</h3>
+                        <form id="conversationForm">
+                            <div class="form-group">
+                                <label for="convAgent1">Agent 1:</label>
+                                <select id="convAgent1" name="agent1" required>
+                                    <option value="">Select agent...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="convAgent2">Agent 2:</label>
+                                <select id="convAgent2" name="agent2" required>
+                                    <option value="">Select agent...</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="initialMessage">Initial Message (from Agent 1):</label>
+                                <textarea id="initialMessage" name="initial_message" rows="4" required placeholder="Enter the first message that Agent 1 will send..."></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label for="rounds">Number of Rounds:</label>
+                                <input type="number" id="rounds" name="rounds" value="3" min="1" max="20" required>
+                                <small class="form-hint">Each agent will respond in turn. Total messages = rounds × 2</small>
+                            </div>
+                            <button type="submit" class="btn btn-primary" id="startConversationBtn">
+                                <span class="btn-text">Start Conversation</span>
+                                <span class="btn-spinner" style="display: none;">⏳</span>
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- Conversation Status -->
+                    <div id="conversationStatus" class="conversation-status" style="display: none;">
+                        <div class="status-header">
+                            <h3>Conversation in Progress</h3>
+                            <button id="cancelConversationBtn" class="btn btn-danger btn-small">Cancel</button>
                         </div>
-                        <div class="form-group">
-                            <label for="receiverAgent">To Agent:</label>
-                            <select id="receiverAgent" name="receiver" required>
-                                <option value="">Select receiver...</option>
-                            </select>
+                        <div class="status-info">
+                            <div class="status-item">
+                                <span class="status-label">Round:</span>
+                                <span id="currentRound">0</span> / <span id="totalRounds">0</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Status:</span>
+                                <span id="conversationStatusText">Waiting...</span>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="messageContent">Message:</label>
-                            <textarea id="messageContent" name="message" rows="4" required></textarea>
+                        <div class="progress-bar">
+                            <div id="progressFill" class="progress-fill"></div>
                         </div>
-                        <button type="submit" class="btn btn-primary">Send Message</button>
-                    </form>
+                    </div>
                 </div>
 
                 <div class="comm-panel">

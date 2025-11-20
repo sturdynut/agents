@@ -397,6 +397,70 @@ If this task requires actions that cannot be performed directly, describe what s
             message_content=message
         )
     
+    def respond_to_agent_message(self, sender_name: str, message_content: str) -> str:
+        """Respond to a message from another agent."""
+        # Build context-aware prompt
+        context = self._get_context()
+        
+        # Create a prompt that includes the message from the other agent
+        agent_message_prompt = f"""You received a message from agent '{sender_name}':
+{message_content}
+
+Please respond to this message naturally and helpfully. Consider the context and previous conversation when crafting your response."""
+        
+        if context:
+            full_prompt = f"{context}\n\n{agent_message_prompt}"
+        else:
+            full_prompt = agent_message_prompt
+        
+        messages = self.conversation_history + [{
+            'role': 'user',
+            'content': full_prompt
+        }]
+        
+        temperature = self.settings.get('temperature', 0.7)
+        max_tokens = self.settings.get('max_tokens', 2048)
+        
+        try:
+            response = self.client.chat(
+                self.model,
+                messages,
+                temperature=temperature,
+                max_tokens=max_tokens
+            )
+            
+            # Update conversation history
+            self.conversation_history.append({
+                'role': 'user',
+                'content': f"Message from {sender_name}: {message_content}"
+            })
+            self.conversation_history.append({
+                'role': 'assistant',
+                'content': response
+            })
+            
+            # Store in knowledge base
+            if self.knowledge_base:
+                self.knowledge_base.add_interaction(
+                    agent_name=self.name,
+                    interaction_type='agent_chat',
+                    content=f"Received from {sender_name}: {message_content}\nResponse: {response}",
+                    metadata={'sender': sender_name, 'response': response},
+                    related_agent=sender_name
+                )
+            
+            return response
+        except Exception as e:
+            error_msg = f"Error responding to message: {str(e)}"
+            if self.knowledge_base:
+                self.knowledge_base.add_interaction(
+                    agent_name=self.name,
+                    interaction_type='agent_chat',
+                    content=f"Error responding to {sender_name}: {error_msg}",
+                    metadata={'error': str(e), 'sender': sender_name}
+                )
+            return error_msg
+    
     def get_info(self) -> Dict[str, Any]:
         """Get agent information."""
         return {
