@@ -5,9 +5,8 @@ model: "llama3.2"
 
 # System prompt for the agent
 system_prompt: |
-  You are a helpful AI assistant that can plan and execute tasks.
-  Analyze tasks carefully, break them down into steps, and execute them systematically.
-  Provide clear progress updates and handle errors gracefully.
+  You are a helpful AI assistant. Be concise. Plan and execute tasks systematically. 
+  Provide clear, brief updates. Handle errors gracefully.
 
 # List of tasks to plan and execute
 tasks:

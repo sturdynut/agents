@@ -56,15 +56,14 @@ class ConversationOrchestrator:
         """Select the best agent to start the conversation based on the objective."""
         agent_descriptions = self._get_agent_descriptions()
         
-        prompt = f"""You are a conversation orchestrator. Your job is to analyze an objective and select the best agent to start working on it.
+        prompt = f"""Select the best agent to start this objective.
 
 Available agents:
 {agent_descriptions}
 
 Objective: {objective}
 
-Based on the objective and the agents' capabilities, which agent should receive the initial instructions? 
-Respond with ONLY the agent name, nothing else. If you cannot determine, respond with the first agent name: {available_agents[0] if available_agents else 'None'}"""
+Respond with ONLY the agent name. Default: {available_agents[0] if available_agents else 'None'}"""
         
         try:
             messages = [{'role': 'user', 'content': prompt}]
@@ -113,25 +112,20 @@ Respond with ONLY the agent name, nothing else. If you cannot determine, respond
             for msg in conversation_history[-5:]  # Last 5 messages
         ])
         
-        prompt = f"""You are a conversation orchestrator. Your job is to analyze the conversation progress and determine which agent should respond next.
+        prompt = f"""Select next agent or END if complete.
 
 Available agents:
 {agent_descriptions}
 
 Objective: {objective}
 
-Conversation so far:
+Recent conversation:
 {conversation_summary}
 
-Current agent ({current_agent}) just responded:
+{current_agent} just responded:
 {current_response[:500]}
 
-Based on the objective, conversation progress, and the current response, which agent should receive this response and continue the conversation?
-- If the objective is complete or the conversation should end, respond with "END"
-- If the current agent should continue, respond with "{current_agent}"
-- Otherwise, respond with the name of the agent that should respond next
-
-Respond with ONLY the agent name or "END", nothing else."""
+Respond with agent name, "{current_agent}" to continue, or "END"."""
         
         try:
             messages = [{'role': 'user', 'content': prompt}]
@@ -176,7 +170,8 @@ Respond with ONLY the agent name or "END", nothing else."""
         conversation_id: Optional[str] = None,
         progress_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         agent_names: Optional[List[str]] = None,
-        resume_session_id: Optional[str] = None
+        resume_session_id: Optional[str] = None,
+        conversation_mode: str = 'intelligent'  # 'intelligent' or 'round_robin'
     ) -> Dict[str, Any]:
         """Start an orchestrated conversation with intelligent routing."""
         # If resuming, load existing session
@@ -190,6 +185,11 @@ Respond with ONLY the agent name or "END", nothing else."""
             agent_names = session['agent_names']
             conversation_history = session['conversation_history']
             current_agent_name = session['current_agent'] or session['agent_names'][0]
+            
+            # Extract routing mode from stored conversation_mode (e.g., 'orchestrated_round_robin')
+            stored_mode = session.get('conversation_mode', 'orchestrated_intelligent')
+            if '_' in stored_mode:
+                conversation_mode = stored_mode.split('_', 1)[1]  # Get 'round_robin' or 'intelligent'
             
             print(f"[Orchestrator] Resuming session '{conversation_id}' with {len(conversation_history)} existing messages")
         else:
@@ -276,18 +276,18 @@ Respond with ONLY the agent name or "END", nothing else."""
                 # Build prompt for current agent
                 if turn == 1:
                     # First turn
-                    prompt = f"""Your objective is: {objective}
+                    prompt = f"""Objective: {objective}
 
-Please begin working towards this objective. Consider what needs to be done and take the first step. Be specific and actionable in your response."""
+Begin working toward this objective. Be specific and actionable."""
                 else:
                     # Subsequent turns - include conversation context
-                    context_summary = "\n\nPrevious conversation:\n"
+                    context_summary = "\n\nRecent conversation:\n"
                     for msg in conversation_state['history'][-5:]:  # Last 5 messages
                         context_summary += f"- {msg['sender']}: {msg['message'][:200]}...\n"
                     
-                    prompt = f"""Your objective is: {objective}{context_summary}
+                    prompt = f"""Objective: {objective}{context_summary}
 
-Based on the conversation so far, what should you contribute next to help achieve this objective? Be specific and build upon what has been discussed."""
+Contribute concisely toward this objective. Build on what's been discussed."""
                 
                 # Get response from current agent
                 try:
@@ -321,24 +321,32 @@ Based on the conversation so far, what should you contribute next to help achiev
                         }
                     )
                     
-                    # Select next agent
-                    next_agent = self._select_next_agent(
-                        objective=objective,
-                        conversation_history=conversation_state['history'],
-                        current_agent=current_agent_name,
-                        current_response=response,
-                        available_agents=agent_names
-                    )
-                    
-                    if next_agent is None:
-                        print(f"[Orchestrator] Orchestrator determined conversation should end")
-                        break
-                    
-                    if next_agent == current_agent_name and turn >= initial_turn + max_turns - 1:
-                        # Same agent but we're near the end, let's try a different one
-                        current_idx = agent_names.index(current_agent_name)
+                    # Select next agent based on conversation mode
+                    if conversation_mode == 'round_robin':
+                        # Strict round-robin: always rotate to next agent
+                        current_idx = agent_names.index(current_agent_name) if current_agent_name in agent_names else 0
                         next_idx = (current_idx + 1) % len(agent_names)
                         next_agent = agent_names[next_idx]
+                        print(f"[Orchestrator] Round-robin mode: rotating from {current_agent_name} to {next_agent}")
+                    else:
+                        # Intelligent mode: let LLM decide
+                        next_agent = self._select_next_agent(
+                            objective=objective,
+                            conversation_history=conversation_state['history'],
+                            current_agent=current_agent_name,
+                            current_response=response,
+                            available_agents=agent_names
+                        )
+                        
+                        if next_agent is None:
+                            print(f"[Orchestrator] Orchestrator determined conversation should end")
+                            break
+                        
+                        if next_agent == current_agent_name and turn >= initial_turn + max_turns - 1:
+                            # Same agent but we're near the end, let's try a different one
+                            current_idx = agent_names.index(current_agent_name)
+                            next_idx = (current_idx + 1) % len(agent_names)
+                            next_agent = agent_names[next_idx]
                     
                     conversation_state['agents_used'].add(next_agent)
                     
@@ -347,7 +355,7 @@ Based on the conversation so far, what should you contribute next to help achiev
                         session_id=conversation_id,
                         objective=objective,
                         agent_names=agent_names,
-                        conversation_mode='orchestrated',
+                        conversation_mode=f'orchestrated_{conversation_mode}',
                         conversation_history=conversation_state['history'],
                         current_agent=next_agent,
                         total_turns=turn,
@@ -407,7 +415,7 @@ Based on the conversation so far, what should you contribute next to help achiev
                 session_id=conversation_id,
                 objective=objective,
                 agent_names=agent_names,
-                conversation_mode='orchestrated',
+                conversation_mode=f'orchestrated_{conversation_mode}',
                 conversation_history=conversation_state['history'],
                 current_agent=conversation_state['current_agent'],
                 total_turns=turn,

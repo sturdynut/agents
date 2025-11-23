@@ -120,18 +120,11 @@ class TaskAgent:
                 'tasks': []
             }
         
-        planning_prompt = f"""You are a task planning assistant. Analyze the following list of tasks and create an execution plan.
+        planning_prompt = f"""Plan these tasks:
 
-Tasks to plan:
 {chr(10).join(f"{i+1}. {task}" for i, task in enumerate(self.tasks))}
 
-Please provide:
-1. A breakdown of each task into subtasks or steps
-2. Any dependencies between tasks
-3. An optimal execution order
-4. Potential challenges or considerations
-
-Format your response clearly with numbered steps and explanations."""
+Provide: breakdown, dependencies, execution order, key challenges. Be concise."""
 
         messages = self.conversation_history + [{
             'role': 'user',
@@ -192,19 +185,13 @@ Format your response clearly with numbered steps and explanations."""
             print(f"TASK {i}/{len(self.tasks)}: {task}")
             print(f"{'='*60}")
             
-            execution_prompt = f"""Execute the following task: {task}
+            execution_prompt = f"""Execute: {task}
 
 {execution_context}
 
-Previous tasks completed: {i-1}/{len(self.tasks)}
+Completed: {i-1}/{len(self.tasks)}
 
-Please:
-1. Explain what you will do for this task
-2. Execute the task step by step
-3. Provide a summary of what was accomplished
-4. Note any issues or considerations
-
-If this task requires actions that cannot be performed (like file operations, API calls, etc.), describe what should be done instead."""
+State approach, execute, and summarize. Be concise."""
 
             messages = self.conversation_history + [{
                 'role': 'user',

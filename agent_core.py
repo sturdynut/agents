@@ -247,17 +247,11 @@ class EnhancedAgent:
         # Get semantically relevant context
         context = self._get_context(query=task)
         
-        task_prompt = f"""Execute the following task: {task}
+        task_prompt = f"""Execute: {task}
 
 {context if context else ''}
 
-Please:
-1. Explain what you will do
-2. Execute the task step by step
-3. Provide a summary of what was accomplished
-4. Note any issues or considerations
-
-If this task requires actions that cannot be performed directly, describe what should be done instead."""
+Be concise. State your approach, execute, and summarize results. Note issues only if critical."""
 
         messages = self.conversation_history + [{
             'role': 'user',
@@ -436,18 +430,15 @@ If this task requires actions that cannot be performed directly, describe what s
         
         # Create a prompt that includes the message from the other agent
         if objective:
-            agent_message_prompt = f"""You are collaborating with agent '{sender_name}' to achieve this objective:
-{objective}
+            agent_message_prompt = f"""Collaborating with '{sender_name}' on: {objective}
 
-You received this message from {sender_name}:
-{message_content}
+Message from {sender_name}: {message_content}
 
-Please respond by working towards the objective. Consider what has been discussed, what progress has been made, and what needs to happen next. Take action or provide input that moves you closer to achieving the objective."""
+Respond concisely, building on progress toward the objective."""
         else:
-            agent_message_prompt = f"""You received a message from agent '{sender_name}':
-{message_content}
+            agent_message_prompt = f"""Message from '{sender_name}': {message_content}
 
-Please respond to this message naturally and helpfully. Consider the context and previous conversation when crafting your response."""
+Respond concisely and helpfully."""
         
         if context:
             full_prompt = f"{context}\n\n{agent_message_prompt}"

@@ -332,6 +332,7 @@ async function startNewSession() {
     const formData = new FormData(form);
     const objective = formData.get('objective');
     const maxTurns = parseInt(formData.get('maxTurns') || '20');
+    const conversationMode = formData.get('conversationMode') || 'intelligent';
     const selectedAgents = getSelectedAgents();
     
     if (!objective) {
@@ -364,7 +365,8 @@ async function startNewSession() {
             body: JSON.stringify({
                 objective: objective,
                 max_turns: maxTurns,
-                agent_names: selectedAgents
+                agent_names: selectedAgents,
+                conversation_mode: conversationMode
             })
         });
         

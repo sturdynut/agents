@@ -416,6 +416,7 @@ def start_orchestrated_conversation():
     objective = data.get('objective', '')
     max_turns = data.get('max_turns', 20)
     requested_agent_names = data.get('agent_names', [])
+    conversation_mode = data.get('conversation_mode', 'intelligent')  # 'intelligent' or 'round_robin'
     
     if not objective:
         return jsonify({'error': 'Objective is required'}), 400
@@ -514,7 +515,8 @@ def start_orchestrated_conversation():
                     progress_callback=progress_callback,
                     agent_names=agent_names,
                     resume_session_id=resume_session_id,
-                    conversation_id=session_id
+                    conversation_id=session_id,
+                    conversation_mode=conversation_mode
                 )
                 
                 if result['success']:
