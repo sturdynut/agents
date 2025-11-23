@@ -136,11 +136,11 @@ class EnhancedAgent:
         """Get context from knowledge base and pending messages."""
         context_parts = []
         
-        # Add shared knowledge summary
+        # Add agent-specific knowledge summary (not shared across all agents)
         if self.knowledge_base:
-            shared_knowledge = self.knowledge_base.get_shared_knowledge_summary(limit=20)
-            if shared_knowledge:
-                context_parts.append(f"Shared Knowledge:\n{shared_knowledge}")
+            agent_knowledge = self.knowledge_base.get_agent_knowledge_summary(agent_name=self.name, limit=20)
+            if agent_knowledge:
+                context_parts.append(f"Your Previous Interactions:\n{agent_knowledge}")
         
         # Add pending messages
         if self.pending_messages:
