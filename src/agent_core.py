@@ -92,6 +92,13 @@ class OllamaClient:
 class EnhancedAgent:
     """Enhanced agent with file operations, knowledge base, and messaging."""
     
+    # Define all available tools
+    AVAILABLE_TOOLS = {
+        'write_file': 'Write content to a file',
+        'read_file': 'Read a file\'s contents',
+        'list_directory': 'List directory contents'
+    }
+    
     def __init__(
         self,
         name: str,
@@ -99,15 +106,36 @@ class EnhancedAgent:
         system_prompt: str = "",
         settings: Optional[Dict[str, Any]] = None,
         knowledge_base=None,
-        message_bus=None
+        message_bus=None,
+        tools: Optional[List[str]] = None
     ):
-        """Initialize enhanced agent."""
+        """Initialize enhanced agent.
+        
+        Args:
+            name: Agent name
+            model: Ollama model name
+            system_prompt: System prompt for the agent
+            settings: Agent settings
+            knowledge_base: Knowledge base instance
+            message_bus: Message bus instance
+            tools: List of allowed tool names. If None, all tools are allowed.
+        """
         self.name = name
         self.model = model
         self.system_prompt = system_prompt
         self.settings = settings or {}
         self.knowledge_base = knowledge_base
         self.message_bus = message_bus
+        
+        # Set allowed tools (if None, allow all tools)
+        if tools is None:
+            self.allowed_tools = list(self.AVAILABLE_TOOLS.keys())
+        else:
+            # Validate and filter tools
+            self.allowed_tools = [
+                tool for tool in tools 
+                if tool in self.AVAILABLE_TOOLS
+            ]
         
         # Initialize Ollama client
         api_endpoint = self.settings.get('api_endpoint', 'http://localhost:11434')
@@ -131,6 +159,32 @@ class EnhancedAgent:
             'content': message_content,
             'timestamp': datetime.utcnow().isoformat()
         })
+    
+    def _get_tools_info(self) -> str:
+        """Generate tools information based on allowed tools.
+        
+        Returns:
+            Formatted string describing available tools
+        """
+        if not self.allowed_tools:
+            return "Note: No tools are available for this agent."
+        
+        tools_lines = ["Available Tools (use when needed):"]
+        
+        if 'write_file' in self.allowed_tools:
+            tools_lines.append('- write_file: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>')
+        
+        if 'read_file' in self.allowed_tools:
+            tools_lines.append('- read_file: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>')
+        
+        if 'list_directory' in self.allowed_tools:
+            tools_lines.append('- list_directory: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>')
+        
+        if 'write_file' in self.allowed_tools:
+            tools_lines.append("\nIMPORTANT: When writing files, just use the filename (e.g., \"script.py\"). The system will automatically save it to the agent_code folder.")
+            tools_lines.append("If you need to organize files in subdirectories, use paths like \"utils/helper.py\" and they will be created in agent_code/utils/.")
+        
+        return "\n".join(tools_lines)
     
     def _get_context(self, query: str = "") -> str:
         """Get context from knowledge base using semantic search.
@@ -189,16 +243,8 @@ class EnhancedAgent:
         # Get context from knowledge base using semantic search
         context = self._get_context(query=user_message)
         
-        # Build tools information
-        tools_info = """
-Available Tools (use when needed):
-- write_file: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>
-- read_file: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>
-- list_directory: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>
-
-IMPORTANT: When writing files, just use the filename (e.g., "script.py"). The system will automatically save it to the agent_code folder.
-If you need to organize files in subdirectories, use paths like "utils/helper.py" and they will be created in agent_code/utils/.
-"""
+        # Build tools information based on allowed tools
+        tools_info = self._get_tools_info()
         
         # Build prompt with context
         if context:
@@ -291,8 +337,14 @@ If you need to organize files in subdirectories, use paths like "utils/helper.py
                 # Parse parameters (expect JSON format)
                 params = json.loads(params_str.strip())
                 
+                # Check if tool is allowed
+                if tool_name not in self.allowed_tools:
+                    result = {
+                        'success': False, 
+                        'error': f'Access denied: Tool "{tool_name}" is not available for this agent. Available tools: {", ".join(self.allowed_tools)}'
+                    }
                 # Execute tool
-                if tool_name == 'write_file':
+                elif tool_name == 'write_file':
                     result = self.write_file(
                         params.get('path', ''),
                         params.get('content', '')
@@ -349,18 +401,8 @@ If you need to organize files in subdirectories, use paths like "utils/helper.py
         # Get semantically relevant context
         context = self._get_context(query=task)
         
-        # Build task prompt with tool calling instructions
-        tools_info = """
-Available Tools:
-- write_file: Write content to a file
-  Usage: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>
-- read_file: Read a file's contents
-  Usage: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>
-- list_directory: List directory contents
-  Usage: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>
-
-IMPORTANT: When writing files, just use the filename (e.g., "script.py"). The system will automatically save it to the agent_code folder.
-"""
+        # Build task prompt with tool calling instructions based on allowed tools
+        tools_info = self._get_tools_info()
         
         task_prompt = f"""Execute: {task}
 
@@ -666,6 +708,7 @@ Respond concisely and helpfully."""
             'model': self.model,
             'system_prompt': self.system_prompt,
             'conversation_length': len(self.conversation_history),
-            'settings': self.settings
+            'settings': self.settings,
+            'allowed_tools': self.allowed_tools
         }
 

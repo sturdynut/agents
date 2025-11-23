@@ -595,14 +595,27 @@ class KnowledgeBase:
         name: str,
         model: str,
         system_prompt: str = "",
-        settings: Optional[Dict[str, Any]] = None
+        settings: Optional[Dict[str, Any]] = None,
+        tools: Optional[List[str]] = None
     ) -> bool:
-        """Save an agent to the database."""
+        """Save an agent to the database.
+        
+        Args:
+            name: Agent name
+            model: Ollama model name
+            system_prompt: System prompt for the agent
+            settings: Agent settings
+            tools: List of allowed tool names. If None, all tools are allowed.
+        
+        Returns:
+            True if agent was saved successfully, False otherwise
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
         timestamp = datetime.utcnow().isoformat()
         settings_json = json.dumps(settings) if settings else None
+        tools_json = json.dumps(tools) if tools is not None else None
         
         try:
             # Check if agent exists
@@ -613,16 +626,16 @@ class KnowledgeBase:
                 # Update existing agent
                 cursor.execute('''
                     UPDATE agents 
-                    SET model = ?, system_prompt = ?, settings = ?, updated_at = ?
+                    SET model = ?, system_prompt = ?, settings = ?, tools = ?, updated_at = ?
                     WHERE name = ?
-                ''', (model, system_prompt, settings_json, timestamp, name))
+                ''', (model, system_prompt, settings_json, tools_json, timestamp, name))
             else:
                 # Insert new agent
                 cursor.execute('''
                     INSERT INTO agents 
-                    (name, model, system_prompt, settings, created_at, updated_at)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ''', (name, model, system_prompt, settings_json, timestamp, timestamp))
+                    (name, model, system_prompt, settings, created_at, updated_at, tools)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ''', (name, model, system_prompt, settings_json, timestamp, timestamp, tools_json))
             
             conn.commit()
             conn.close()
@@ -656,13 +669,22 @@ class KnowledgeBase:
             agents = []
             for row in rows:
                 try:
+                    # Check if tools column exists in this row
+                    tools_data = None
+                    try:
+                        if 'tools' in row.keys():
+                            tools_data = json.loads(row['tools']) if row['tools'] else None
+                    except (KeyError, json.JSONDecodeError):
+                        pass  # Column doesn't exist or invalid JSON, tools will be None
+                    
                     agent = {
                         'name': row['name'],
                         'model': row['model'],
                         'system_prompt': row['system_prompt'] or '',
                         'settings': json.loads(row['settings']) if row['settings'] else {},
                         'created_at': row['created_at'],
-                        'updated_at': row['updated_at']
+                        'updated_at': row['updated_at'],
+                        'tools': tools_data
                     }
                     agents.append(agent)
                 except Exception as e:

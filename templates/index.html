@@ -111,6 +111,33 @@
                             <input type="number" id="maxTokens" name="max_tokens" value="2048" min="100" max="8192" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-3">Tool Access</label>
+                        <div class="space-y-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="tool_write_file" name="tools" value="write_file" checked class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="tool_write_file" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">write_file</span>
+                                    <span class="text-slate-600"> - Write content to files</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="tool_read_file" name="tools" value="read_file" checked class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="tool_read_file" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">read_file</span>
+                                    <span class="text-slate-600"> - Read file contents</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="tool_list_directory" name="tools" value="list_directory" checked class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="tool_list_directory" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">list_directory</span>
+                                    <span class="text-slate-600"> - List directory contents</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-slate-500 pt-2 border-t border-slate-200">Select which tools this agent can access. Uncheck all for a tool-less agent.</p>
+                        </div>
+                    </div>
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
                         Create Agent
                     </button>
@@ -147,6 +174,33 @@
                         <div>
                             <label for="editMaxTokens" class="block text-sm font-medium text-slate-700 mb-2">Max Tokens</label>
                             <input type="number" id="editMaxTokens" name="max_tokens" min="100" max="8192" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-3">Tool Access</label>
+                        <div class="space-y-3 bg-slate-50 rounded-lg p-4 border border-slate-200">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="edit_tool_write_file" name="tools" value="write_file" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="edit_tool_write_file" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">write_file</span>
+                                    <span class="text-slate-600"> - Write content to files</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="edit_tool_read_file" name="tools" value="read_file" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="edit_tool_read_file" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">read_file</span>
+                                    <span class="text-slate-600"> - Read file contents</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="edit_tool_list_directory" name="tools" value="list_directory" class="w-4 h-4 text-indigo-600 border-slate-300 rounded focus:ring-indigo-500">
+                                <label for="edit_tool_list_directory" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900">list_directory</span>
+                                    <span class="text-slate-600"> - List directory contents</span>
+                                </label>
+                            </div>
+                            <p class="text-xs text-slate-500 pt-2 border-t border-slate-200">Select which tools this agent can access. Uncheck all for a tool-less agent.</p>
                         </div>
                     </div>
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">

@@ -65,6 +65,22 @@ def knowledge():
 
 # API Endpoints
 
+@app.route('/api/tools', methods=['GET'])
+def get_available_tools():
+    """Get all available tools."""
+    from src.agent_core import EnhancedAgent
+    tools = {
+        'tools': [
+            {
+                'name': tool_name,
+                'description': tool_desc
+            }
+            for tool_name, tool_desc in EnhancedAgent.AVAILABLE_TOOLS.items()
+        ]
+    }
+    return jsonify(tools)
+
+
 @app.route('/api/agents', methods=['GET'])
 def list_agents():
     """List all agents."""
@@ -80,6 +96,7 @@ def create_agent():
     model = data.get('model', 'llama3.2')
     system_prompt = data.get('system_prompt', '')
     settings = data.get('settings', {})
+    tools = data.get('tools', None)  # None means all tools enabled
     
     if not name:
         return jsonify({'error': 'Agent name is required'}), 400
@@ -87,7 +104,17 @@ def create_agent():
     if agent_manager.agent_exists(name):
         return jsonify({'error': 'Agent already exists'}), 400
     
-    success = agent_manager.create_agent(name, model, system_prompt, settings)
+    # Validate tools if provided
+    if tools is not None:
+        available_tools = ['write_file', 'read_file', 'list_directory']
+        invalid_tools = [t for t in tools if t not in available_tools]
+        if invalid_tools:
+            return jsonify({
+                'error': f'Invalid tools: {", ".join(invalid_tools)}',
+                'available_tools': available_tools
+            }), 400
+    
+    success = agent_manager.create_agent(name, model, system_prompt, settings, tools)
     if success:
         return jsonify({'message': 'Agent created successfully', 'agent': agent_manager.get_agent(name).get_info()})
     else:
@@ -127,10 +154,21 @@ def update_agent(agent_name):
     model = data.get('model')
     system_prompt = data.get('system_prompt')
     settings = data.get('settings', {})
+    tools = data.get('tools')
     
     # If name is changing, check if new name is available
     if new_name != agent_name and agent_manager.agent_exists(new_name):
         return jsonify({'error': 'An agent with that name already exists'}), 400
+    
+    # Validate tools if provided
+    if tools is not None:
+        available_tools = ['write_file', 'read_file', 'list_directory']
+        invalid_tools = [t for t in tools if t not in available_tools]
+        if invalid_tools:
+            return jsonify({
+                'error': f'Invalid tools: {", ".join(invalid_tools)}',
+                'available_tools': available_tools
+            }), 400
     
     # Get the agent and update it
     agent = agent_manager.get_agent(agent_name)
@@ -147,6 +185,13 @@ def update_agent(agent_name):
             agent.settings['temperature'] = settings['temperature']
         if 'max_tokens' in settings:
             agent.settings['max_tokens'] = settings['max_tokens']
+    if tools is not None:
+        # Validate and filter tools
+        from src.agent_core import EnhancedAgent
+        agent.allowed_tools = [
+            tool for tool in tools 
+            if tool in EnhancedAgent.AVAILABLE_TOOLS
+        ]
     
     # If name changed, update in manager
     if new_name != agent_name:
@@ -156,6 +201,15 @@ def update_agent(agent_name):
         # Update in message bus
         if agent_name in message_bus.agent_registry:
             message_bus.agent_registry[new_name] = message_bus.agent_registry.pop(agent_name)
+    
+    # Save updated agent to database
+    knowledge_base.save_agent(
+        name=agent.name,
+        model=agent.model,
+        system_prompt=agent.system_prompt,
+        settings=agent.settings,
+        tools=agent.allowed_tools if agent.allowed_tools else None
+    )
     
     return jsonify({'message': 'Agent updated successfully', 'agent': agent.get_info()})
 

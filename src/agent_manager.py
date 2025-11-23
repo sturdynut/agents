@@ -31,18 +31,24 @@ class AgentManager:
             
             for agent_data in agents_data:
                 try:
+                    # Get tools from agent data
+                    tools = agent_data.get('tools', None)
+                    
                     agent = EnhancedAgent(
                         name=agent_data['name'],
                         model=agent_data['model'],
                         system_prompt=agent_data['system_prompt'],
                         settings=agent_data['settings'],
                         knowledge_base=self.knowledge_base,
-                        message_bus=self.message_bus
+                        message_bus=self.message_bus,
+                        tools=tools
                     )
                     
                     self.agents[agent_data['name']] = agent
                     self.message_bus.register_agent(agent_data['name'], agent)
-                    print(f"[AgentManager] Loaded agent: {agent_data['name']} ({agent_data['model']})")
+                    
+                    tools_info = f" (tools: {', '.join(agent.allowed_tools)})" if agent.allowed_tools else " (no tools)"
+                    print(f"[AgentManager] Loaded agent: {agent_data['name']} ({agent_data['model']}){tools_info}")
                 except Exception as e:
                     print(f"[AgentManager] Error loading agent '{agent_data.get('name', 'unknown')}': {e}")
                     import traceback
@@ -59,9 +65,21 @@ class AgentManager:
         name: str,
         model: str,
         system_prompt: str = "",
-        settings: Optional[Dict] = None
+        settings: Optional[Dict] = None,
+        tools: Optional[List[str]] = None
     ) -> bool:
-        """Create a new agent and save to database."""
+        """Create a new agent and save to database.
+        
+        Args:
+            name: Agent name
+            model: Ollama model name
+            system_prompt: System prompt for the agent
+            settings: Agent settings
+            tools: List of allowed tool names. If None, all tools are allowed.
+        
+        Returns:
+            True if agent was created successfully, False otherwise
+        """
         if name in self.agents:
             return False  # Agent already exists
         
@@ -70,7 +88,8 @@ class AgentManager:
             name=name,
             model=model,
             system_prompt=system_prompt,
-            settings=settings or {}
+            settings=settings or {},
+            tools=tools
         )
         
         if not success:
@@ -83,18 +102,20 @@ class AgentManager:
             system_prompt=system_prompt,
             settings=settings or {},
             knowledge_base=self.knowledge_base,
-            message_bus=self.message_bus
+            message_bus=self.message_bus,
+            tools=tools
         )
         
         self.agents[name] = agent
         self.message_bus.register_agent(name, agent)
         
         # Log agent creation
+        tools_str = ', '.join(agent.allowed_tools) if agent.allowed_tools else 'none'
         self.knowledge_base.add_interaction(
             agent_name=name,
             interaction_type='system',
-            content=f"Agent '{name}' created with model '{model}'",
-            metadata={'action': 'create_agent', 'model': model}
+            content=f"Agent '{name}' created with model '{model}' and tools: {tools_str}",
+            metadata={'action': 'create_agent', 'model': model, 'tools': agent.allowed_tools}
         )
         
         return True

@@ -36,6 +36,7 @@ Then open your browser to **http://localhost:5001**
 - **💾 Persistent Storage**: SQLite database stores agents and all message history
 - **📚 Knowledge Base**: Shared knowledge base tracks all interactions, tasks, and file operations
 - **🔧 File Operations**: Agents can read, write, and list files/directories
+- **🔒 Tool Access Control**: Fine-grained control over which tools each agent can use (read-only, write-only, or full access)
 - **🎯 Task Execution**: Agents can execute complex tasks with context awareness
 - **🌐 Real-time Updates**: WebSocket support for real-time communication
 
@@ -351,6 +352,10 @@ CREATE TABLE knowledge_base (
    - **System Prompt**: Defines agent personality/behavior
    - **Temperature**: 0.0-2.0 (creativity level)
    - **Max Tokens**: Maximum response length
+   - **Tool Access**: Select which tools the agent can use (checkboxes):
+     - ✅ write_file - Write content to files
+     - ✅ read_file - Read file contents
+     - ✅ list_directory - List directory contents
 3. Click "Create Agent"
 
 The agent is saved to the database and available immediately.
@@ -407,6 +412,63 @@ When creating an agent, you can configure:
 - **Temperature**: 0.0-2.0 (lower = more focused, higher = more creative)
 - **Max Tokens**: Maximum tokens in responses (100-8192)
 - **API Endpoint**: Ollama API endpoint (default: http://localhost:11434)
+- **Tools**: List of allowed tools (optional, defaults to all tools)
+
+### Tool Access Control
+
+Control which tools each agent can access for enhanced security and specialization:
+
+#### Available Tools
+
+- **write_file**: Write content to files in the agent_code directory
+- **read_file**: Read file contents from the filesystem
+- **list_directory**: List contents of directories
+
+#### Creating Agents with Tool Restrictions
+
+```python
+# Create a read-only agent
+agent_manager.create_agent(
+    name="code_reviewer",
+    model="llama3.2",
+    system_prompt="You review code but never modify it.",
+    tools=["read_file", "list_directory"]
+)
+
+# Create a write-only agent
+agent_manager.create_agent(
+    name="doc_generator",
+    model="llama3.2",
+    system_prompt="You generate documentation files.",
+    tools=["write_file"]
+)
+
+# Create a full-access agent (default)
+agent_manager.create_agent(
+    name="developer",
+    model="llama3.2",
+    system_prompt="You are a full-stack developer.",
+    tools=None  # or ["write_file", "read_file", "list_directory"]
+)
+```
+
+#### Via API
+
+```bash
+# Create read-only agent
+curl -X POST http://localhost:5001/api/agents \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "reader",
+    "model": "llama3.2",
+    "tools": ["read_file", "list_directory"]
+  }'
+
+# Get available tools
+curl http://localhost:5001/api/tools
+```
+
+See [docs/TOOL_ACCESS_CONTROL.md](docs/TOOL_ACCESS_CONTROL.md) for detailed documentation.
 
 ### Database Configuration
 

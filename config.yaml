@@ -11,6 +11,20 @@ system_prompt: |
 # List of tasks to plan and execute
 tasks:
 
+# Tools configuration (optional)
+# Specify which tools this agent can use. If not specified, all tools are available.
+# Available tools: write_file, read_file, list_directory
+# Example:
+# tools:
+#   - write_file
+#   - read_file
+#   - list_directory
+# To restrict tools, remove any you don't want the agent to have access to.
+# For a read-only agent:
+# tools:
+#   - read_file
+#   - list_directory
+
 # Optional Ollama API settings
 settings:
   temperature: 0.7

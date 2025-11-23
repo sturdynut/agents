@@ -63,7 +63,8 @@ def init_database(db_path: str = "data/agent.db", reset: bool = False):
                 system_prompt TEXT,
                 settings TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                tools TEXT
             )
         ''')
         print("[OK] agents table created")

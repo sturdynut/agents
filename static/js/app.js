@@ -103,6 +103,18 @@ if (document.getElementById('agentList')) {
                 
                 const systemPromptText = agentDetails.system_prompt || 'No system prompt set';
                 
+                // Generate tools display
+                const allowedTools = agentDetails.allowed_tools || [];
+                let toolsHtml = '';
+                if (allowedTools.length === 0) {
+                    toolsHtml = '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"></path></svg>No tools</span>';
+                } else if (allowedTools.length === 3) {
+                    toolsHtml = '<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>All tools</span>';
+                } else {
+                    const toolNames = allowedTools.map(t => t.replace('_', ' ')).join(', ');
+                    toolsHtml = `<span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700" title="${toolNames}"><svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>${allowedTools.length} tools</span>`;
+                }
+                
                 agentItem.innerHTML = `
                     <div class="flex items-start justify-between mb-4">
                         <div class="flex-1">
@@ -126,6 +138,7 @@ if (document.getElementById('agentList')) {
                                     </svg>
                                     Temp: ${agentDetails.settings?.temperature || 0.7}
                                 </span>
+                                ${toolsHtml}
                             </div>
                         </div>
                     </div>
@@ -192,6 +205,14 @@ if (document.getElementById('agentList')) {
         createAgentForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData(createAgentForm);
+            
+            // Get selected tools
+            const selectedTools = [];
+            const toolCheckboxes = createAgentForm.querySelectorAll('input[name="tools"]:checked');
+            toolCheckboxes.forEach(checkbox => {
+                selectedTools.push(checkbox.value);
+            });
+            
             const agentData = {
                 name: formData.get('name'),
                 model: formData.get('model') || 'llama3.2',
@@ -202,10 +223,17 @@ if (document.getElementById('agentList')) {
                 }
             };
             
+            // Only add tools if some are selected (otherwise defaults to all tools)
+            if (selectedTools.length > 0 && selectedTools.length < 3) {
+                agentData.tools = selectedTools;
+            }
+            
             try {
                 await createAgent(agentData);
                 createAgentModal.classList.add('hidden');
                 createAgentForm.reset();
+                // Re-check all tool boxes by default
+                createAgentForm.querySelectorAll('input[name="tools"]').forEach(cb => cb.checked = true);
                 renderAgents();
             } catch (error) {
                 alert('Error creating agent: ' + error.message);
@@ -238,6 +266,14 @@ if (document.getElementById('agentList')) {
             e.preventDefault();
             const formData = new FormData(editAgentForm);
             const originalName = formData.get('original_name');
+            
+            // Get selected tools
+            const selectedTools = [];
+            const toolCheckboxes = editAgentForm.querySelectorAll('input[name="tools"]:checked');
+            toolCheckboxes.forEach(checkbox => {
+                selectedTools.push(checkbox.value);
+            });
+            
             const agentData = {
                 name: formData.get('name'),
                 model: formData.get('model'),
@@ -245,7 +281,8 @@ if (document.getElementById('agentList')) {
                 settings: {
                     temperature: parseFloat(formData.get('temperature') || 0.7),
                     max_tokens: parseInt(formData.get('max_tokens') || 2048)
-                }
+                },
+                tools: selectedTools
             };
             
             try {
@@ -271,6 +308,12 @@ if (document.getElementById('agentList')) {
             document.getElementById('editSystemPrompt').value = agent.system_prompt || '';
             document.getElementById('editTemperature').value = agent.settings?.temperature || 0.7;
             document.getElementById('editMaxTokens').value = agent.settings?.max_tokens || 2048;
+            
+            // Populate tool checkboxes
+            const allowedTools = agent.allowed_tools || ['write_file', 'read_file', 'list_directory'];
+            document.getElementById('edit_tool_write_file').checked = allowedTools.includes('write_file');
+            document.getElementById('edit_tool_read_file').checked = allowedTools.includes('read_file');
+            document.getElementById('edit_tool_list_directory').checked = allowedTools.includes('list_directory');
             
             // Show the modal
             editAgentModal.classList.remove('hidden');
