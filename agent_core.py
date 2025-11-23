@@ -132,15 +132,46 @@ class EnhancedAgent:
             'timestamp': datetime.utcnow().isoformat()
         })
     
-    def _get_context(self) -> str:
-        """Get context from knowledge base and pending messages."""
+    def _get_context(self, query: str = "") -> str:
+        """Get context from knowledge base using semantic search.
+        
+        Args:
+            query: Current user message or task for semantic retrieval
+            
+        Returns:
+            Formatted context string
+        """
         context_parts = []
         
-        # Add agent-specific knowledge summary (not shared across all agents)
-        if self.knowledge_base:
-            agent_knowledge = self.knowledge_base.get_agent_knowledge_summary(agent_name=self.name, limit=20)
-            if agent_knowledge:
-                context_parts.append(f"Your Previous Interactions:\n{agent_knowledge}")
+        # Add semantically relevant interactions if query provided
+        if self.knowledge_base and query:
+            try:
+                relevant_interactions = self.knowledge_base.semantic_search_interactions(
+                    query=query,
+                    agent_name=self.name,
+                    top_k=10,
+                    time_decay_factor=0.95
+                )
+                
+                if relevant_interactions:
+                    interactions_text = []
+                    for interaction in relevant_interactions:
+                        timestamp = interaction['timestamp']
+                        interaction_type = interaction['interaction_type']
+                        content = interaction['content'][:200]  # Truncate long content
+                        score = interaction.get('relevance_score', 0)
+                        
+                        interactions_text.append(
+                            f"[{timestamp}] {interaction_type} (relevance: {score:.2f}): {content}"
+                        )
+                    
+                    context_parts.append(f"Relevant Previous Interactions:\n" + "\n".join(interactions_text))
+            except Exception as e:
+                print(f"[Agent {self.name}] Error in semantic search, falling back: {e}")
+                # Fallback to recent interactions
+                agent_knowledge = self.knowledge_base.get_agent_knowledge_summary(agent_name=self.name, limit=10)
+                if agent_knowledge:
+                    context_parts.append(f"Recent Interactions:\n{agent_knowledge}")
         
         # Add pending messages
         if self.pending_messages:
@@ -155,8 +186,8 @@ class EnhancedAgent:
     
     def chat(self, user_message: str) -> str:
         """Chat with the agent."""
-        # Get context from knowledge base
-        context = self._get_context()
+        # Get context from knowledge base using semantic search
+        context = self._get_context(query=user_message)
         
         # Build prompt with context
         if context:
@@ -213,7 +244,8 @@ class EnhancedAgent:
     
     def execute_task(self, task: str) -> str:
         """Execute a single task."""
-        context = self._get_context()
+        # Get semantically relevant context
+        context = self._get_context(query=task)
         
         task_prompt = f"""Execute the following task: {task}
 
@@ -399,8 +431,8 @@ If this task requires actions that cannot be performed directly, describe what s
     
     def respond_to_agent_message(self, sender_name: str, message_content: str, objective: str = None) -> str:
         """Respond to a message from another agent."""
-        # Build context-aware prompt
-        context = self._get_context()
+        # Build context-aware prompt with semantic search
+        context = self._get_context(query=message_content)
         
         # Create a prompt that includes the message from the other agent
         if objective:

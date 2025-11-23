@@ -19,3 +19,16 @@ settings:
   # Ollama API endpoint (default: http://localhost:11434)
   api_endpoint: "http://localhost:11434"
 
+# Embedding configuration for semantic knowledge base
+embeddings:
+  # Embedding model (must be downloaded locally: ollama pull nomic-embed-text)
+  model: "nomic-embed-text"
+  # Embedding dimension (nomic-embed-text uses 768)
+  dimension: 768
+  # Number of top results to retrieve in semantic search
+  top_k: 10
+  # Time decay factor for weighting recent interactions (0-1, higher = less decay)
+  time_decay_factor: 0.95
+  # Size of embedding cache (number of embeddings to keep in memory)
+  cache_size: 1000
+
