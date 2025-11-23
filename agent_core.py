@@ -397,13 +397,22 @@ If this task requires actions that cannot be performed directly, describe what s
             message_content=message
         )
     
-    def respond_to_agent_message(self, sender_name: str, message_content: str) -> str:
+    def respond_to_agent_message(self, sender_name: str, message_content: str, objective: str = None) -> str:
         """Respond to a message from another agent."""
         # Build context-aware prompt
         context = self._get_context()
         
         # Create a prompt that includes the message from the other agent
-        agent_message_prompt = f"""You received a message from agent '{sender_name}':
+        if objective:
+            agent_message_prompt = f"""You are collaborating with agent '{sender_name}' to achieve this objective:
+{objective}
+
+You received this message from {sender_name}:
+{message_content}
+
+Please respond by working towards the objective. Consider what has been discussed, what progress has been made, and what needs to happen next. Take action or provide input that moves you closer to achieving the objective."""
+        else:
+            agent_message_prompt = f"""You received a message from agent '{sender_name}':
 {message_content}
 
 Please respond to this message naturally and helpfully. Consider the context and previous conversation when crafting your response."""

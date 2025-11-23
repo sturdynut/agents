@@ -27,63 +27,28 @@
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6">
-                <h2 class="text-xl font-semibold text-slate-900 mb-6">Agent Communication</h2>
+                <h2 class="text-xl font-semibold text-slate-900 mb-6">Agent Collaboration</h2>
                 
-                <!-- Single Message Form -->
-                <div class="mb-8 pb-8 border-b border-slate-200">
-                    <h3 class="text-lg font-medium text-slate-800 mb-4">Send Single Message</h3>
-                    <form id="agentMessageForm" class="space-y-4">
-                        <div>
-                            <label for="senderAgent" class="block text-sm font-medium text-slate-700 mb-2">From Agent</label>
-                            <select id="senderAgent" name="sender" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
-                                <option value="">Select sender...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="receiverAgent" class="block text-sm font-medium text-slate-700 mb-2">To Agent</label>
-                            <select id="receiverAgent" name="receiver" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
-                                <option value="">Select receiver...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="messageContent" class="block text-sm font-medium text-slate-700 mb-2">Message</label>
-                            <textarea id="messageContent" name="message" rows="4" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
-                        </div>
-                        <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
-                            Send Message
-                        </button>
-                    </form>
-                </div>
-                
-                <!-- Multi-Round Conversation Form -->
+                <!-- Objective-Based Conversation Form -->
                 <div>
-                    <h3 class="text-lg font-medium text-slate-800 mb-4">Start Multi-Round Conversation</h3>
+                    <h3 class="text-lg font-medium text-slate-800 mb-4">Set Objective for Agents</h3>
                     <form id="conversationForm" class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div>
-                                <label for="convAgent1" class="block text-sm font-medium text-slate-700 mb-2">Agent 1</label>
-                                <select id="convAgent1" name="agent1" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
-                                    <option value="">Select agent...</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label for="convAgent2" class="block text-sm font-medium text-slate-700 mb-2">Agent 2</label>
-                                <select id="convAgent2" name="agent2" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors bg-white">
-                                    <option value="">Select agent...</option>
-                                </select>
-                            </div>
-                        </div>
                         <div>
-                            <label for="initialMessage" class="block text-sm font-medium text-slate-700 mb-2">Initial Message (from Agent 1)</label>
-                            <textarea id="initialMessage" name="initial_message" rows="4" required placeholder="Enter the first message that Agent 1 will send..." class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
+                            <label for="objective" class="block text-sm font-medium text-slate-700 mb-2">Objective / Goal</label>
+                            <textarea id="objective" name="objective" rows="4" required placeholder="Enter the objective or goal that all agents should work together to achieve..." class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
+                            <p class="mt-1 text-xs text-slate-500">Describe what you want all agents to accomplish together</p>
+                        </div>
+                        <div id="participatingAgents" class="mb-4 p-3 bg-slate-50 rounded-lg">
+                            <p class="text-sm font-medium text-slate-700 mb-2">Participating Agents:</p>
+                            <p id="agentsList" class="text-sm text-slate-600">Loading agents...</p>
                         </div>
                         <div>
                             <label for="rounds" class="block text-sm font-medium text-slate-700 mb-2">Number of Rounds</label>
-                            <input type="number" id="rounds" name="rounds" value="3" min="1" max="20" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
-                            <p class="mt-1 text-xs text-slate-500">Each agent will respond in turn. Total messages = rounds × 2</p>
+                            <input type="number" id="rounds" name="rounds" value="5" min="1" max="20" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                            <p class="mt-1 text-xs text-slate-500">Each agent will take a turn working towards the objective. Agents will cycle through in order.</p>
                         </div>
                         <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md" id="startConversationBtn">
-                            <span class="btn-text">Start Conversation</span>
+                            <span class="btn-text">Start Collaboration</span>
                             <span class="btn-spinner hidden">⏳</span>
                         </button>
                     </form>
@@ -92,10 +57,14 @@
                 <!-- Conversation Status -->
                 <div id="conversationStatus" class="hidden mt-6 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="text-lg font-semibold text-indigo-900">Conversation in Progress</h3>
+                        <h3 class="text-lg font-semibold text-indigo-900">Collaboration in Progress</h3>
                         <button id="cancelConversationBtn" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium rounded-lg transition-colors duration-200">
                             Cancel
                         </button>
+                    </div>
+                    <div class="mb-3">
+                        <span class="text-sm font-medium text-slate-600">Objective:</span>
+                        <p id="currentObjective" class="text-sm text-slate-900 mt-1 font-medium"></p>
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div>

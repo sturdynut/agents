@@ -126,7 +126,16 @@ dmypy.json
 *.db
 *.sqlite
 *.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
 data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# Agent-generated code
+agent_code/
 
 # IDE - VSCode
 .vscode/

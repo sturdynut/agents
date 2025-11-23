@@ -17,7 +17,7 @@ from pathlib import Path
 class KnowledgeBase:
     """Manages the shared knowledge base database."""
     
-    def __init__(self, db_path: str = "data/knowledge.db"):
+    def __init__(self, db_path: str = "data/agent.db"):
         """Initialize knowledge base with database path."""
         # Ensure data directory exists
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
@@ -30,6 +30,7 @@ class KnowledgeBase:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
+        # Knowledge base table for interactions/messages
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS knowledge_base (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -42,7 +43,20 @@ class KnowledgeBase:
             )
         ''')
         
-        # Create index for faster queries
+        # Agents table for storing agent configurations
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS agents (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT UNIQUE NOT NULL,
+                model TEXT NOT NULL,
+                system_prompt TEXT,
+                settings TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+        
+        # Create indexes for faster queries
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_agent_name 
             ON knowledge_base(agent_name)
@@ -56,6 +70,11 @@ class KnowledgeBase:
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_timestamp 
             ON knowledge_base(timestamp)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_agents_name 
+            ON agents(name)
         ''')
         
         conn.commit()
@@ -235,4 +254,121 @@ class KnowledgeBase:
         
         conn.commit()
         conn.close()
+    
+    def save_agent(
+        self,
+        name: str,
+        model: str,
+        system_prompt: str = "",
+        settings: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Save an agent to the database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        timestamp = datetime.utcnow().isoformat()
+        settings_json = json.dumps(settings) if settings else None
+        
+        try:
+            # Check if agent exists
+            cursor.execute('SELECT created_at FROM agents WHERE name = ?', (name,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Update existing agent
+                cursor.execute('''
+                    UPDATE agents 
+                    SET model = ?, system_prompt = ?, settings = ?, updated_at = ?
+                    WHERE name = ?
+                ''', (model, system_prompt, settings_json, timestamp, name))
+            else:
+                # Insert new agent
+                cursor.execute('''
+                    INSERT INTO agents 
+                    (name, model, system_prompt, settings, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ''', (name, model, system_prompt, settings_json, timestamp, timestamp))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            conn.close()
+            return False
+    
+    def load_agents(self) -> List[Dict[str, Any]]:
+        """Load all agents from the database."""
+        try:
+            # Check if database file exists
+            if not os.path.exists(self.db_path):
+                print(f"[KnowledgeBase] Database file not found: {self.db_path}")
+                return []
+            
+            conn = sqlite3.connect(self.db_path)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            # Check if agents table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='agents'")
+            if not cursor.fetchone():
+                print(f"[KnowledgeBase] Agents table not found in database")
+                conn.close()
+                return []
+            
+            cursor.execute('SELECT * FROM agents ORDER BY name')
+            rows = cursor.fetchall()
+            
+            agents = []
+            for row in rows:
+                try:
+                    agent = {
+                        'name': row['name'],
+                        'model': row['model'],
+                        'system_prompt': row['system_prompt'] or '',
+                        'settings': json.loads(row['settings']) if row['settings'] else {},
+                        'created_at': row['created_at'],
+                        'updated_at': row['updated_at']
+                    }
+                    agents.append(agent)
+                except Exception as e:
+                    print(f"[KnowledgeBase] Error parsing agent row: {e}")
+                    import traceback
+                    traceback.print_exc()
+            
+            conn.close()
+            print(f"[KnowledgeBase] Loaded {len(agents)} agents from database: {self.db_path}")
+            return agents
+        except sqlite3.Error as e:
+            print(f"[KnowledgeBase] Database error loading agents: {e}")
+            return []
+        except Exception as e:
+            print(f"[KnowledgeBase] Error loading agents: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def delete_agent(self, name: str) -> bool:
+        """Delete an agent from the database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        try:
+            cursor.execute('DELETE FROM agents WHERE name = ?', (name,))
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            conn.close()
+            return False
+    
+    def agent_exists_in_db(self, name: str) -> bool:
+        """Check if an agent exists in the database."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT COUNT(*) FROM agents WHERE name = ?', (name,))
+        count = cursor.fetchone()[0]
+        conn.close()
+        
+        return count > 0
 

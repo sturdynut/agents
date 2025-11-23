@@ -14,41 +14,33 @@ async function loadAgents() {
     }
 }
 
-async function populateAgentSelects() {
+async function populateAgentList() {
     const agents = await loadAgents();
-    const senderSelect = document.getElementById('senderAgent');
-    const receiverSelect = document.getElementById('receiverAgent');
-    const convAgent1 = document.getElementById('convAgent1');
-    const convAgent2 = document.getElementById('convAgent2');
+    const agentsList = document.getElementById('agentsList');
     
-    [senderSelect, receiverSelect, convAgent1, convAgent2].forEach(select => {
-        if (!select) return;
-        // Preserve the currently selected value
-        const currentValue = select.value;
-        select.innerHTML = '<option value="">Select agent...</option>';
-        agents.forEach(agent => {
-            const option = document.createElement('option');
-            option.value = agent.name;
-            option.textContent = agent.name;
-            select.appendChild(option);
-        });
-        // Restore the selected value if it still exists
-        if (currentValue && agents.some(agent => agent.name === currentValue)) {
-            select.value = currentValue;
+    if (agentsList) {
+        if (agents.length === 0) {
+            agentsList.textContent = 'No agents available. Create agents first.';
+            agentsList.className = 'text-sm text-red-600';
+        } else {
+            const agentNames = agents.map(a => a.name).join(', ');
+            agentsList.textContent = agentNames;
+            agentsList.className = 'text-sm text-slate-600';
         }
-    });
+    }
 }
 
 async function loadMessageHistory() {
     try {
-        const response = await fetch('/api/knowledge?interaction_type=agent_chat&limit=50');
+        const response = await fetch('/api/knowledge?interaction_type=agent_chat&limit=100');
         const data = await response.json();
         const interactions = data.interactions || [];
         
         const messageHistory = document.getElementById('messageHistory');
         messageHistory.innerHTML = '';
         
-        interactions.reverse().forEach(interaction => {
+        // Most recent first (API returns DESC, so newest is first)
+        interactions.forEach(interaction => {
             const messageDiv = document.createElement('div');
             messageDiv.className = 'bg-slate-50 hover:bg-slate-100 rounded-lg p-4 border-l-4 border-indigo-500 transition-colors duration-200';
             messageDiv.innerHTML = `
@@ -68,59 +60,7 @@ async function loadMessageHistory() {
     }
 }
 
-// Single message form
-const agentMessageForm = document.getElementById('agentMessageForm');
-
-if (agentMessageForm) {
-    agentMessageForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(agentMessageForm);
-        const sender = formData.get('sender');
-        const receiver = formData.get('receiver');
-        const message = formData.get('message');
-        
-        if (!sender || !receiver || !message) {
-            showNotification('Please fill in all fields', 'error');
-            return;
-        }
-        
-        if (sender === receiver) {
-            showNotification('Sender and receiver must be different', 'error');
-            return;
-        }
-        
-        const submitBtn = agentMessageForm.querySelector('button[type="submit"]');
-        const originalText = submitBtn.textContent;
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Sending...';
-        
-        try {
-            const response = await fetch(`/api/agents/${sender}/message/${receiver}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ message })
-            });
-            
-            const data = await response.json();
-            if (response.ok) {
-                showNotification('Message sent successfully!', 'success');
-                agentMessageForm.reset();
-                loadMessageHistory();
-            } else {
-                showNotification('Error: ' + data.error, 'error');
-            }
-        } catch (error) {
-            showNotification('Error sending message: ' + error.message, 'error');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = originalText;
-        }
-    });
-}
-
-// Multi-round conversation form
+// Objective-based conversation form
 const conversationForm = document.getElementById('conversationForm');
 const conversationStatus = document.getElementById('conversationStatus');
 const startConversationBtn = document.getElementById('startConversationBtn');
@@ -136,18 +76,18 @@ if (conversationForm) {
         }
         
         const formData = new FormData(conversationForm);
-        const agent1 = formData.get('agent1');
-        const agent2 = formData.get('agent2');
-        const initialMessage = formData.get('initial_message');
+        const objective = formData.get('objective');
         const rounds = parseInt(formData.get('rounds'));
         
-        if (!agent1 || !agent2 || !initialMessage) {
-            showNotification('Please fill in all fields', 'error');
+        if (!objective) {
+            showNotification('Please enter an objective', 'error');
             return;
         }
         
-        if (agent1 === agent2) {
-            showNotification('Agent 1 and Agent 2 must be different', 'error');
+        // Check if we have agents
+        let agents = await loadAgents();
+        if (agents.length < 2) {
+            showNotification('You need at least 2 agents to start a collaboration', 'error');
             return;
         }
         
@@ -162,7 +102,10 @@ if (conversationForm) {
         conversationForm.classList.add('hidden');
         conversationStatus.classList.remove('hidden');
         
-        updateConversationStatus(0, rounds, 'Sending request to server...');
+        // Display objective
+        document.getElementById('currentObjective').textContent = objective;
+        const totalTurns = rounds * agents.length;
+        updateConversationStatus(0, rounds, 'Sending request to server...', 0, totalTurns);
         
         const btnText = startConversationBtn.querySelector('.btn-text');
         const btnSpinner = startConversationBtn.querySelector('.btn-spinner');
@@ -192,15 +135,17 @@ if (conversationForm) {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout
             
-            updateConversationStatus(0, rounds, 'Processing...');
+            agents = await loadAgents();
+            const totalTurns = rounds * agents.length;
+            updateConversationStatus(0, rounds, 'Processing...', 0, totalTurns);
             
-            const response = await fetch(`/api/agents/${agent1}/conversation/${agent2}`, {
+            const response = await fetch('/api/agents/collaborate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    initial_message: initialMessage,
+                    objective: objective,
                     rounds: rounds
                 }),
                 signal: controller.signal
@@ -223,7 +168,9 @@ if (conversationForm) {
             
             if (response.ok && data.success) {
                 // Update progress to 100%
-                updateConversationStatus(rounds, rounds, 'Completed!');
+                agents = await loadAgents();
+                const totalTurns = rounds * agents.length;
+                updateConversationStatus(rounds, rounds, 'Completed!', totalTurns, totalTurns);
                 
                 // Animate progress bar
                 setTimeout(() => {
@@ -240,7 +187,9 @@ if (conversationForm) {
                     loadMessageHistory();
                 }, 500);
             } else {
-                updateConversationStatus(0, rounds, 'Error occurred');
+                agents = await loadAgents();
+                const totalTurns = rounds * agents.length;
+                updateConversationStatus(0, rounds, 'Error occurred', 0, totalTurns);
                 showNotification('Error: ' + (data.error || 'Unknown error'), 'error');
             }
         } catch (error) {
@@ -249,7 +198,9 @@ if (conversationForm) {
                 statusInterval = null;
             }
             if (!conversationAborted) {
-                updateConversationStatus(0, rounds, 'Error occurred');
+                agents = await loadAgents();
+                const totalTurns = rounds * agents.length;
+                updateConversationStatus(0, rounds, 'Error occurred', 0, totalTurns);
                 let errorMessage = 'Error starting conversation: ';
                 if (error.name === 'AbortError') {
                     errorMessage += 'Request timed out. The conversation may be taking too long.';
@@ -281,7 +232,7 @@ if (cancelConversationBtn) {
     });
 }
 
-function updateConversationStatus(currentRound, totalRounds, statusText) {
+function updateConversationStatus(currentRound, totalRounds, statusText, currentTurn, totalTurns) {
     const currentRoundEl = document.getElementById('currentRound');
     const totalRoundsEl = document.getElementById('totalRounds');
     const statusTextEl = document.getElementById('conversationStatusText');
@@ -289,9 +240,18 @@ function updateConversationStatus(currentRound, totalRounds, statusText) {
     
     if (currentRoundEl) currentRoundEl.textContent = currentRound;
     if (totalRoundsEl) totalRoundsEl.textContent = totalRounds;
-    if (statusTextEl) statusTextEl.textContent = statusText;
+    if (statusTextEl) {
+        if (currentTurn && totalTurns) {
+            statusTextEl.textContent = `${statusText} (Turn ${currentTurn}/${totalTurns})`;
+        } else {
+            statusTextEl.textContent = statusText;
+        }
+    }
     
-    if (progressFill && totalRounds > 0) {
+    if (progressFill && totalTurns > 0) {
+        const progress = (currentTurn / totalTurns) * 100;
+        progressFill.style.width = `${progress}%`;
+    } else if (progressFill && totalRounds > 0) {
         const progress = (currentRound / totalRounds) * 100;
         progressFill.style.width = `${progress}%`;
     }
@@ -329,12 +289,12 @@ function showNotification(message, type = 'info') {
 }
 
 // Initialize
-populateAgentSelects();
+populateAgentList();
 loadMessageHistory();
 setInterval(() => {
     if (!conversationInProgress) {
         loadMessageHistory();
     }
 }, 5000); // Refresh every 5 seconds
-setInterval(populateAgentSelects, 10000); // Refresh agent list every 10 seconds
+setInterval(populateAgentList, 10000); // Refresh agent list every 10 seconds
 

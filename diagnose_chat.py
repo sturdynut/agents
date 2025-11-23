@@ -78,7 +78,7 @@ def check_agent_system():
 
 def check_database():
     """Check if knowledge base database exists."""
-    db_path = "data/knowledge.db"
+    db_path = "data/agent.db"
     if os.path.exists(db_path):
         print(f"✅ Knowledge base database exists at {db_path}")
         return True
