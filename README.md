@@ -2,6 +2,32 @@
 
 A modern web-based multi-agent system built with Flask and Ollama. Create, manage, and interact with multiple AI agents that can communicate with each other, execute tasks, and maintain persistent memory through a SQLite knowledge base.
 
+## 🚀 Quick Start
+
+Get up and running in 5 minutes:
+
+```bash
+# 1. Install Ollama (if not already installed)
+# Visit https://ollama.ai and follow installation instructions
+
+# 2. Download a model
+ollama pull llama3.2
+
+# 3. Install Python dependencies
+pip install -r requirements.txt
+
+# 4. Initialize the database
+python init_db.py
+
+# 5. (Optional) Add sample agents
+python seed_db.py
+
+# 6. Start the application
+python app.py
+```
+
+Then open your browser to **http://localhost:5001**
+
 ## Features
 
 - **🤖 Multiple Agents**: Create and manage multiple AI agents with unique personalities and capabilities
@@ -12,6 +38,66 @@ A modern web-based multi-agent system built with Flask and Ollama. Create, manag
 - **🔧 File Operations**: Agents can read, write, and list files/directories
 - **🎯 Task Execution**: Agents can execute complex tasks with context awareness
 - **🌐 Real-time Updates**: WebSocket support for real-time communication
+
+## How It Works
+
+The Multi-Agent System operates through a layered architecture that enables AI agents to work independently and collaboratively:
+
+### Core Workflow
+
+1. **Agent Creation**: Create agents through the web interface with custom personalities, models, and settings
+2. **Agent Manager**: Manages the lifecycle of all agents, persisting them to SQLite database
+3. **Message Bus**: Routes messages between agents, enabling direct communication and multi-round conversations
+4. **Knowledge Base**: Every interaction (chat, task, file operation, agent message) is stored for context and history
+5. **Ollama Integration**: Each agent uses local Ollama models for AI-powered responses
+
+### Communication Flow
+
+```mermaid
+graph TB
+    User[👤 User] -->|HTTP/WebSocket| WebUI[🌐 Web Interface]
+    WebUI -->|REST API| Flask[⚙️ Flask App]
+    
+    Flask -->|Create/Delete| AgentMgr[📋 Agent Manager]
+    Flask -->|Chat/Task| Agent[🤖 Agent]
+    Flask -->|Route Message| MsgBus[📨 Message Bus]
+    
+    AgentMgr -->|Load/Save| DB[(🗄️ SQLite DB)]
+    Agent -->|Generate Response| Ollama[🧠 Ollama API]
+    Agent -->|Store Interaction| KB[📚 Knowledge Base]
+    MsgBus -->|Store Message| KB
+    
+    KB -->|Persist| DB
+    Agent -->|Read Context| KB
+    MsgBus -->|Deliver| Agent
+    
+    style User fill:#e1f5ff
+    style WebUI fill:#fff4e1
+    style Flask fill:#ffe1f5
+    style AgentMgr fill:#f5e1ff
+    style Agent fill:#e1ffe1
+    style Ollama fill:#ffe1e1
+    style KB fill:#fff4e1
+    style DB fill:#e1e1ff
+    style MsgBus fill:#ffe1cc
+```
+
+### Key Components
+
+- **Web Interface** (`templates/`, `static/`): User-facing pages for managing agents, chatting, viewing knowledge
+- **Flask App** (`app.py`): REST API and WebSocket server handling all HTTP requests
+- **Agent Manager** (`agent_manager.py`): Manages agent lifecycle, registration, and persistence
+- **Enhanced Agent** (`agent_core.py`): Individual agent with chat, task execution, file ops, and messaging capabilities
+- **Message Bus** (`message_bus.py`): Routes messages between agents and stores them in knowledge base
+- **Knowledge Base** (`knowledge_base.py`): SQLite wrapper for storing all interactions and providing context
+- **Conversation Orchestrator** (`conversation_orchestrator.py`): Manages multi-agent conversations with intelligent routing
+
+### Use Cases
+
+1. **Direct Chat**: Chat with individual agents for help, advice, or task execution
+2. **Agent Collaboration**: Multiple agents work together on complex objectives
+3. **Task Automation**: Agents execute tasks like code generation, file operations, analysis
+4. **Knowledge Accumulation**: Every interaction builds an agent's knowledge for better future responses
 
 ## Prerequisites
 
