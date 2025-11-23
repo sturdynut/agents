@@ -56,6 +56,23 @@ class KnowledgeBase:
             )
         ''')
         
+        # Sessions table for tracking conversation sessions
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS conversation_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id TEXT UNIQUE NOT NULL,
+                objective TEXT NOT NULL,
+                agent_names TEXT NOT NULL,
+                conversation_mode TEXT NOT NULL,
+                conversation_history TEXT,
+                current_agent TEXT,
+                total_turns INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        ''')
+        
         # Create indexes for faster queries
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_agent_name 
@@ -75,6 +92,16 @@ class KnowledgeBase:
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_agents_name 
             ON agents(name)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_sessions_id 
+            ON conversation_sessions(session_id)
+        ''')
+        
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_sessions_status 
+            ON conversation_sessions(status)
         ''')
         
         conn.commit()
@@ -371,4 +398,121 @@ class KnowledgeBase:
         conn.close()
         
         return count > 0
+    
+    def save_session(
+        self,
+        session_id: str,
+        objective: str,
+        agent_names: List[str],
+        conversation_mode: str,
+        conversation_history: List[Dict[str, Any]],
+        current_agent: Optional[str] = None,
+        total_turns: int = 0,
+        status: str = 'active'
+    ) -> bool:
+        """Save or update a conversation session."""
+        conn = sqlite3.connect(self.db_path)
+        cursor = conn.cursor()
+        
+        timestamp = datetime.utcnow().isoformat()
+        agent_names_json = json.dumps(agent_names)
+        history_json = json.dumps(conversation_history)
+        
+        try:
+            # Check if session exists
+            cursor.execute('SELECT id FROM conversation_sessions WHERE session_id = ?', (session_id,))
+            existing = cursor.fetchone()
+            
+            if existing:
+                # Update existing session
+                cursor.execute('''
+                    UPDATE conversation_sessions 
+                    SET objective = ?, agent_names = ?, conversation_mode = ?, 
+                        conversation_history = ?, current_agent = ?, total_turns = ?, 
+                        status = ?, updated_at = ?
+                    WHERE session_id = ?
+                ''', (objective, agent_names_json, conversation_mode, history_json, 
+                      current_agent, total_turns, status, timestamp, session_id))
+            else:
+                # Insert new session
+                cursor.execute('''
+                    INSERT INTO conversation_sessions 
+                    (session_id, objective, agent_names, conversation_mode, 
+                     conversation_history, current_agent, total_turns, status, 
+                     created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (session_id, objective, agent_names_json, conversation_mode, 
+                      history_json, current_agent, total_turns, status, 
+                      timestamp, timestamp))
+            
+            conn.commit()
+            conn.close()
+            return True
+        except Exception as e:
+            conn.close()
+            print(f"[KnowledgeBase] Error saving session: {e}")
+            return False
+    
+    def get_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        """Get a conversation session by ID."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        cursor.execute('SELECT * FROM conversation_sessions WHERE session_id = ?', (session_id,))
+        row = cursor.fetchone()
+        conn.close()
+        
+        if not row:
+            return None
+        
+        return {
+            'session_id': row['session_id'],
+            'objective': row['objective'],
+            'agent_names': json.loads(row['agent_names']),
+            'conversation_mode': row['conversation_mode'],
+            'conversation_history': json.loads(row['conversation_history']) if row['conversation_history'] else [],
+            'current_agent': row['current_agent'],
+            'total_turns': row['total_turns'],
+            'status': row['status'],
+            'created_at': row['created_at'],
+            'updated_at': row['updated_at']
+        }
+    
+    def list_sessions(self, status: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """List conversation sessions."""
+        conn = sqlite3.connect(self.db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = 'SELECT * FROM conversation_sessions'
+        params = []
+        
+        if status:
+            query += ' WHERE status = ?'
+            params.append(status)
+        
+        query += ' ORDER BY updated_at DESC LIMIT ?'
+        params.append(limit)
+        
+        cursor.execute(query, params)
+        rows = cursor.fetchall()
+        conn.close()
+        
+        sessions = []
+        for row in rows:
+            sessions.append({
+                'session_id': row['session_id'],
+                'objective': row['objective'],
+                'agent_names': json.loads(row['agent_names']),
+                'conversation_mode': row['conversation_mode'],
+                'conversation_history': json.loads(row['conversation_history']) if row['conversation_history'] else [],
+                'current_agent': row['current_agent'],
+                'total_turns': row['total_turns'],
+                'status': row['status'],
+                'created_at': row['created_at'],
+                'updated_at': row['updated_at']
+            })
+        
+        return sessions
 
