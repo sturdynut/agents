@@ -4,9 +4,14 @@ Test script to verify agent file writing capabilities.
 """
 
 import sys
-from knowledge_base import KnowledgeBase
-from message_bus import MessageBus
-from agent_manager import AgentManager
+from pathlib import Path
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.knowledge_base import KnowledgeBase
+from src.message_bus import MessageBus
+from src.agent_manager import AgentManager
 
 
 def test_agent_file_write():

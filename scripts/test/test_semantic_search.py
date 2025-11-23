@@ -6,8 +6,13 @@ Tests the new semantic search functionality and compares it with the old approac
 """
 
 import sys
-from knowledge_base import KnowledgeBase
+from pathlib import Path
 from datetime import datetime, timedelta
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.knowledge_base import KnowledgeBase
 
 
 def test_semantic_search():

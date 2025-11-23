@@ -11,9 +11,9 @@ Intelligently routes conversations between agents by:
 import json
 from typing import Dict, List, Optional, Any, Callable
 from datetime import datetime
-from agent_core import EnhancedAgent, OllamaClient
-from knowledge_base import KnowledgeBase
-from message_bus import MessageBus
+from .agent_core import EnhancedAgent, OllamaClient
+from .knowledge_base import KnowledgeBase
+from .message_bus import MessageBus
 
 
 class ConversationOrchestrator:

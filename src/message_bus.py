@@ -8,7 +8,7 @@ and storing message history in the knowledge base.
 
 from typing import Dict, List, Optional
 from datetime import datetime
-from knowledge_base import KnowledgeBase
+from .knowledge_base import KnowledgeBase
 
 
 class MessageBus:

@@ -6,9 +6,9 @@ Manages multiple agent instances, their creation, deletion, and lifecycle.
 """
 
 from typing import Dict, Optional, List
-from agent_core import EnhancedAgent
-from knowledge_base import KnowledgeBase
-from message_bus import MessageBus
+from .agent_core import EnhancedAgent
+from .knowledge_base import KnowledgeBase
+from .message_bus import MessageBus
 
 
 class AgentManager:

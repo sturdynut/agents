@@ -11,10 +11,10 @@ import threading
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
-from knowledge_base import KnowledgeBase
-from message_bus import MessageBus
-from agent_manager import AgentManager
-from conversation_orchestrator import ConversationOrchestrator
+from src.knowledge_base import KnowledgeBase
+from src.message_bus import MessageBus
+from src.agent_manager import AgentManager
+from src.conversation_orchestrator import ConversationOrchestrator
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'

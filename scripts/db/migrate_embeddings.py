@@ -9,7 +9,11 @@ Useful for migrating from the old knowledge base structure to the new semantic s
 import sys
 import argparse
 from pathlib import Path
-from knowledge_base import KnowledgeBase
+
+# Add project root to path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from src.knowledge_base import KnowledgeBase
 
 
 def migrate_embeddings(
