@@ -22,50 +22,40 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <aside class="lg:col-span-1">
-                <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6 sticky top-6">
-                    <div class="mb-6">
-                        <h2 class="text-lg font-semibold text-slate-900 mb-4">Agents</h2>
-                        <button id="createAgentBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
-                            + Create Agent
-                        </button>
+        <main>
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-indigo-100">Active Agents</h3>
+                        <svg class="w-6 h-6 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+                        </svg>
                     </div>
-                    <div id="agentList" class="space-y-3 max-h-[600px] overflow-y-auto">
-                        <!-- Agents will be loaded here -->
-                    </div>
+                    <p id="agentCount" class="text-4xl font-bold">0</p>
                 </div>
-            </aside>
-
-            <main class="lg:col-span-3">
-                <div id="dashboard" class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-8">
-                    <div class="text-center mb-8">
-                        <h2 class="text-2xl font-bold text-slate-900 mb-2">Welcome to the Multi-Agent System</h2>
-                        <p class="text-slate-600">Create agents, chat with them, and let them collaborate!</p>
+                <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 text-white shadow-lg">
+                    <div class="flex items-center justify-between mb-2">
+                        <h3 class="text-sm font-medium text-blue-100">Total Messages</h3>
+                        <svg class="w-6 h-6 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                        </svg>
                     </div>
+                    <p id="messageCount" class="text-4xl font-bold">0</p>
+                </div>
+            </div>
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-sm font-medium text-indigo-100">Active Agents</h3>
-                                <svg class="w-6 h-6 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
-                                </svg>
-                            </div>
-                            <p id="agentCount" class="text-4xl font-bold">0</p>
-                        </div>
-                        <div class="bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl p-6 text-white shadow-lg">
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-sm font-medium text-blue-100">Total Messages</h3>
-                                <svg class="w-6 h-6 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
-                                </svg>
-                            </div>
-                            <p id="messageCount" class="text-4xl font-bold">0</p>
-                        </div>
-                    </div>
-
-                    <div class="flex flex-wrap gap-4 justify-center">
+            <!-- Quick Actions -->
+            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6 mb-6">
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                    <h2 class="text-xl font-bold text-slate-900">Quick Actions</h2>
+                    <div class="flex flex-wrap gap-3">
+                        <button id="createAgentBtn" class="inline-flex items-center px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
+                            </svg>
+                            Create Agent
+                        </button>
                         <a href="/agent-comm" class="inline-flex items-center px-6 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
                             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
@@ -80,8 +70,16 @@
                         </a>
                     </div>
                 </div>
-            </main>
-        </div>
+            </div>
+
+            <!-- Agents Section -->
+            <div class="bg-white/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 p-6">
+                <h2 class="text-xl font-bold text-slate-900 mb-6">Your Agents</h2>
+                <div id="agentList" class="space-y-4">
+                    <!-- Agents will be loaded here -->
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- Create Agent Modal -->
@@ -115,6 +113,44 @@
                     </div>
                     <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
                         Create Agent
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Agent Modal -->
+    <div id="editAgentModal" class="hidden fixed inset-0 z-50 overflow-y-auto" style="background-color: rgba(0, 0, 0, 0.5);">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 relative">
+                <button class="close-edit absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl font-bold">&times;</button>
+                <h2 class="text-2xl font-bold text-slate-900 mb-6">Edit Agent</h2>
+                <form id="editAgentForm" class="space-y-5">
+                    <input type="hidden" id="editAgentOriginalName" name="original_name">
+                    <div>
+                        <label for="editAgentName" class="block text-sm font-medium text-slate-700 mb-2">Agent Name</label>
+                        <input type="text" id="editAgentName" name="name" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="editAgentModel" class="block text-sm font-medium text-slate-700 mb-2">Model</label>
+                        <input type="text" id="editAgentModel" name="model" required class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                    </div>
+                    <div>
+                        <label for="editSystemPrompt" class="block text-sm font-medium text-slate-700 mb-2">System Prompt</label>
+                        <textarea id="editSystemPrompt" name="system_prompt" rows="4" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none"></textarea>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label for="editTemperature" class="block text-sm font-medium text-slate-700 mb-2">Temperature</label>
+                            <input type="number" id="editTemperature" name="temperature" min="0" max="2" step="0.1" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                        </div>
+                        <div>
+                            <label for="editMaxTokens" class="block text-sm font-medium text-slate-700 mb-2">Max Tokens</label>
+                            <input type="number" id="editMaxTokens" name="max_tokens" min="100" max="8192" class="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2.5 px-4 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
+                        Update Agent
                     </button>
                 </form>
             </div>

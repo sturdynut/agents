@@ -94,6 +94,72 @@ def create_agent():
         return jsonify({'error': 'Failed to create agent'}), 500
 
 
+@app.route('/api/agents/<agent_name>', methods=['GET'])
+def get_agent(agent_name):
+    """Get agent details."""
+    if not agent_manager.agent_exists(agent_name):
+        return jsonify({'error': 'Agent not found'}), 404
+    
+    agent = agent_manager.get_agent(agent_name)
+    if agent:
+        # Get message count for this agent
+        try:
+            interactions = knowledge_base.get_interactions(agent_name=agent_name, limit=100000)
+            message_count = len(interactions)
+        except:
+            message_count = 0
+        
+        agent_info = agent.get_info()
+        agent_info['message_count'] = message_count
+        return jsonify({'agent': agent_info})
+    else:
+        return jsonify({'error': 'Agent not found'}), 404
+
+
+@app.route('/api/agents/<agent_name>', methods=['PUT'])
+def update_agent(agent_name):
+    """Update an agent."""
+    if not agent_manager.agent_exists(agent_name):
+        return jsonify({'error': 'Agent not found'}), 404
+    
+    data = request.json
+    new_name = data.get('name', agent_name)
+    model = data.get('model')
+    system_prompt = data.get('system_prompt')
+    settings = data.get('settings', {})
+    
+    # If name is changing, check if new name is available
+    if new_name != agent_name and agent_manager.agent_exists(new_name):
+        return jsonify({'error': 'An agent with that name already exists'}), 400
+    
+    # Get the agent and update it
+    agent = agent_manager.get_agent(agent_name)
+    if not agent:
+        return jsonify({'error': 'Agent not found'}), 404
+    
+    # Update agent properties
+    if model:
+        agent.model = model
+    if system_prompt is not None:
+        agent.system_prompt = system_prompt
+    if settings:
+        if 'temperature' in settings:
+            agent.settings['temperature'] = settings['temperature']
+        if 'max_tokens' in settings:
+            agent.settings['max_tokens'] = settings['max_tokens']
+    
+    # If name changed, update in manager
+    if new_name != agent_name:
+        agent.name = new_name
+        # Update in agent manager's registry
+        agent_manager.agents[new_name] = agent_manager.agents.pop(agent_name)
+        # Update in message bus
+        if agent_name in message_bus.agent_registry:
+            message_bus.agent_registry[new_name] = message_bus.agent_registry.pop(agent_name)
+    
+    return jsonify({'message': 'Agent updated successfully', 'agent': agent.get_info()})
+
+
 @app.route('/api/agents/<agent_name>', methods=['DELETE'])
 def delete_agent(agent_name):
     """Delete an agent."""
@@ -737,6 +803,25 @@ def handle_agent_message(data):
         }, broadcast=True)
     else:
         emit('error', {'error': 'Failed to send message'})
+
+
+@app.route('/api/stats', methods=['GET'])
+def get_stats():
+    """Get system statistics."""
+    agents = agent_manager.list_agents()
+    
+    # Get total message count from knowledge base
+    # Count all interactions (user_chat, agent_chat, task_execution, etc.)
+    try:
+        interactions = knowledge_base.get_interactions(limit=100000)
+        total_messages = len(interactions)
+    except:
+        total_messages = 0
+    
+    return jsonify({
+        'agents_count': len(agents),
+        'messages_count': total_messages
+    })
 
 
 @app.route('/api/health', methods=['GET'])

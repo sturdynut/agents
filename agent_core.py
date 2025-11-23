@@ -185,15 +185,26 @@ class EnhancedAgent:
         return "\n\n".join(context_parts) if context_parts else ""
     
     def chat(self, user_message: str) -> str:
-        """Chat with the agent."""
+        """Chat with the agent with tool calling support."""
         # Get context from knowledge base using semantic search
         context = self._get_context(query=user_message)
         
+        # Build tools information
+        tools_info = """
+Available Tools (use when needed):
+- write_file: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>
+- read_file: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>
+- list_directory: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>
+
+IMPORTANT: When writing files, just use the filename (e.g., "script.py"). The system will automatically save it to the agent_code folder.
+If you need to organize files in subdirectories, use paths like "utils/helper.py" and they will be created in agent_code/utils/.
+"""
+        
         # Build prompt with context
         if context:
-            full_prompt = f"{context}\n\nUser: {user_message}"
+            full_prompt = f"{context}\n\n{tools_info}\n\nUser: {user_message}"
         else:
-            full_prompt = user_message
+            full_prompt = f"{tools_info}\n\nUser: {user_message}"
         
         messages = self.conversation_history + [{
             'role': 'user',
@@ -211,6 +222,23 @@ class EnhancedAgent:
                 max_tokens=max_tokens
             )
             
+            # Parse and execute tool calls
+            modified_response, tool_results = self._parse_and_execute_tools(response)
+            
+            # If tools were executed, append results
+            if tool_results:
+                tool_feedback = "\n\n[Tool Execution Results]\n"
+                for tool_result in tool_results:
+                    tool_feedback += f"• {tool_result['tool']}: "
+                    if tool_result['result'].get('success'):
+                        tool_feedback += "✓ Success"
+                        if 'path' in tool_result['result']:
+                            tool_feedback += f" - {tool_result['result']['path']}"
+                    else:
+                        tool_feedback += f"✗ Error: {tool_result['result'].get('error', 'Unknown')}"
+                    tool_feedback += "\n"
+                modified_response += tool_feedback
+            
             # Update conversation history
             self.conversation_history.append({
                 'role': 'user',
@@ -218,7 +246,7 @@ class EnhancedAgent:
             })
             self.conversation_history.append({
                 'role': 'assistant',
-                'content': response
+                'content': modified_response
             })
             
             # Store in knowledge base
@@ -226,11 +254,11 @@ class EnhancedAgent:
                 self.knowledge_base.add_interaction(
                     agent_name=self.name,
                     interaction_type='user_chat',
-                    content=f"User: {user_message}\nAgent: {response}",
-                    metadata={'user_message': user_message, 'agent_response': response}
+                    content=f"User: {user_message}\nAgent: {modified_response}",
+                    metadata={'user_message': user_message, 'agent_response': modified_response, 'tools_used': len(tool_results) > 0}
                 )
             
-            return response
+            return modified_response
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             if self.knowledge_base:
@@ -242,63 +270,186 @@ class EnhancedAgent:
                 )
             return error_msg
     
+    def _parse_and_execute_tools(self, response: str) -> tuple[str, List[Dict[str, Any]]]:
+        """Parse tool calls from agent response and execute them.
+        
+        Returns:
+            Tuple of (modified_response, tool_results)
+        """
+        import re
+        
+        tool_results = []
+        modified_response = response
+        
+        # Pattern to match tool calls: <TOOL_CALL tool="name">params</TOOL_CALL>
+        # Also handle common variations with extra braces
+        tool_pattern = r'<TOOL_CALL tool="([^"]+)">\s*(\{.*?\})\s*(?:</TOOL_CALL>|\}+)'
+        matches = re.findall(tool_pattern, response, re.DOTALL)
+        
+        for tool_name, params_str in matches:
+            try:
+                # Parse parameters (expect JSON format)
+                params = json.loads(params_str.strip())
+                
+                # Execute tool
+                if tool_name == 'write_file':
+                    result = self.write_file(
+                        params.get('path', ''),
+                        params.get('content', '')
+                    )
+                elif tool_name == 'read_file':
+                    result = self.read_file(params.get('path', ''))
+                elif tool_name == 'list_directory':
+                    result = self.list_directory(params.get('path', '.'))
+                else:
+                    result = {'success': False, 'error': f'Unknown tool: {tool_name}'}
+                
+                tool_results.append({
+                    'tool': tool_name,
+                    'params': params,
+                    'result': result
+                })
+                
+                # Replace tool call in response with result summary
+                # Be flexible with the closing syntax
+                original_patterns = [
+                    f'<TOOL_CALL tool="{tool_name}">{params_str}</TOOL_CALL>',
+                    f'<TOOL_CALL tool="{tool_name}">{params_str}}}',
+                    f'<TOOL_CALL tool="{tool_name}"> {params_str} </TOOL_CALL>',
+                    f'<TOOL_CALL tool="{tool_name}"> {params_str}}}',
+                ]
+                
+                if result.get('success'):
+                    replacement = f"[Executed: {tool_name} - Success]"
+                else:
+                    replacement = f"[Executed: {tool_name} - Error: {result.get('error', 'Unknown error')}]"
+                
+                for pattern in original_patterns:
+                    if pattern in modified_response:
+                        modified_response = modified_response.replace(pattern, replacement)
+                        break
+                
+            except json.JSONDecodeError as e:
+                tool_results.append({
+                    'tool': tool_name,
+                    'params': params_str,
+                    'result': {'success': False, 'error': f'Invalid JSON parameters: {str(e)}'}
+                })
+            except Exception as e:
+                tool_results.append({
+                    'tool': tool_name,
+                    'params': params_str,
+                    'result': {'success': False, 'error': str(e)}
+                })
+        
+        return modified_response, tool_results
+    
     def execute_task(self, task: str) -> str:
-        """Execute a single task."""
+        """Execute a single task with tool calling support."""
         # Get semantically relevant context
         context = self._get_context(query=task)
+        
+        # Build task prompt with tool calling instructions
+        tools_info = """
+Available Tools:
+- write_file: Write content to a file
+  Usage: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>
+- read_file: Read a file's contents
+  Usage: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>
+- list_directory: List directory contents
+  Usage: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>
+
+IMPORTANT: When writing files, just use the filename (e.g., "script.py"). The system will automatically save it to the agent_code folder.
+"""
         
         task_prompt = f"""Execute: {task}
 
 {context if context else ''}
 
-Be concise. State your approach, execute, and summarize results. Note issues only if critical."""
+{tools_info}
 
-        messages = self.conversation_history + [{
-            'role': 'user',
-            'content': task_prompt
-        }]
+Be concise. State your approach, execute using available tools if needed, and summarize results. Note issues only if critical."""
+
+        max_iterations = 3  # Allow agent to use tools iteratively
+        iteration = 0
+        accumulated_response = ""
         
-        temperature = self.settings.get('temperature', 0.7)
-        max_tokens = self.settings.get('max_tokens', 2048)
-        
-        try:
-            response = self.client.chat(
-                self.model,
-                messages,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
-            
-            # Update conversation history
-            self.conversation_history.append({
+        while iteration < max_iterations:
+            messages = self.conversation_history + [{
                 'role': 'user',
-                'content': task_prompt
-            })
-            self.conversation_history.append({
-                'role': 'assistant',
-                'content': response
-            })
+                'content': task_prompt if iteration == 0 else f"Continue with task: {task}\n\nPrevious actions: {accumulated_response}"
+            }]
             
-            # Store in knowledge base
-            if self.knowledge_base:
-                self.knowledge_base.add_interaction(
-                    agent_name=self.name,
-                    interaction_type='task_execution',
-                    content=f"Task: {task}\nResult: {response}",
-                    metadata={'task': task, 'result': response}
-                )
+            temperature = self.settings.get('temperature', 0.7)
+            max_tokens = self.settings.get('max_tokens', 2048)
             
-            return response
-        except Exception as e:
-            error_msg = f"Error executing task: {str(e)}"
-            if self.knowledge_base:
-                self.knowledge_base.add_interaction(
-                    agent_name=self.name,
-                    interaction_type='task_execution',
-                    content=f"Task: {task}\nError: {error_msg}",
-                    metadata={'error': str(e)}
+            try:
+                response = self.client.chat(
+                    self.model,
+                    messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
                 )
-            return error_msg
+                
+                # Parse and execute tool calls
+                modified_response, tool_results = self._parse_and_execute_tools(response)
+                
+                # If no tools were called, we're done
+                if not tool_results:
+                    accumulated_response += modified_response
+                    break
+                
+                # Build feedback for agent about tool execution
+                tool_feedback = "\n\nTool Execution Results:\n"
+                for tool_result in tool_results:
+                    tool_feedback += f"- {tool_result['tool']}: "
+                    if tool_result['result'].get('success'):
+                        tool_feedback += "✓ Success"
+                        if 'path' in tool_result['result']:
+                            tool_feedback += f" (path: {tool_result['result']['path']})"
+                        if 'content' in tool_result['result']:
+                            content_preview = tool_result['result']['content'][:100]
+                            tool_feedback += f"\n  Content preview: {content_preview}..."
+                    else:
+                        tool_feedback += f"✗ Error: {tool_result['result'].get('error', 'Unknown')}"
+                    tool_feedback += "\n"
+                
+                accumulated_response += modified_response + tool_feedback
+                task_prompt = tool_feedback  # Feed results back for next iteration
+                
+                iteration += 1
+                
+            except Exception as e:
+                error_msg = f"Error executing task: {str(e)}"
+                if self.knowledge_base:
+                    self.knowledge_base.add_interaction(
+                        agent_name=self.name,
+                        interaction_type='task_execution',
+                        content=f"Task: {task}\nError: {error_msg}",
+                        metadata={'error': str(e)}
+                    )
+                return error_msg
+        
+        # Update conversation history
+        self.conversation_history.append({
+            'role': 'user',
+            'content': f"Execute: {task}"
+        })
+        self.conversation_history.append({
+            'role': 'assistant',
+            'content': accumulated_response
+        })
+        
+        # Store in knowledge base
+        if self.knowledge_base:
+            self.knowledge_base.add_interaction(
+                agent_name=self.name,
+                interaction_type='task_execution',
+                content=f"Task: {task}\nResult: {accumulated_response}",
+                metadata={'task': task, 'result': accumulated_response}
+            )
+        
+        return accumulated_response
     
     def read_file(self, file_path: str) -> Dict[str, Any]:
         """Read a file."""
@@ -342,9 +493,24 @@ Be concise. State your approach, execute, and summarize results. Note issues onl
     def write_file(self, file_path: str, content: str) -> Dict[str, Any]:
         """Write to a file."""
         try:
+            # Convert to Path object
             path = Path(file_path)
+            
+            # If path is relative and starts with agent_code, make it absolute
+            if not path.is_absolute():
+                # Get the workspace root (where the app.py file is located)
+                workspace_root = Path(__file__).parent
+                
+                # If path doesn't start with agent_code, prepend it
+                if not str(path).startswith('agent_code'):
+                    path = workspace_root / 'agent_code' / path
+                else:
+                    path = workspace_root / path
+            
+            # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
             
+            # Write the file
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(content)
             
@@ -355,8 +521,8 @@ Be concise. State your approach, execute, and summarize results. Note issues onl
                 self.knowledge_base.add_interaction(
                     agent_name=self.name,
                     interaction_type='file_operation',
-                    content=f"Write file: {file_path}\nContent length: {len(content)} bytes",
-                    metadata={'operation': 'write', 'path': file_path, 'size': len(content)}
+                    content=f"Write file: {file_path}\nActual path: {path}\nContent length: {len(content)} bytes",
+                    metadata={'operation': 'write', 'path': file_path, 'actual_path': str(path), 'size': len(content)}
                 )
             
             return result
@@ -498,7 +664,7 @@ Respond concisely and helpfully."""
         return {
             'name': self.name,
             'model': self.model,
-            'system_prompt': self.system_prompt[:100] + '...' if len(self.system_prompt) > 100 else self.system_prompt,
+            'system_prompt': self.system_prompt,
             'conversation_length': len(self.conversation_history),
             'settings': self.settings
         }

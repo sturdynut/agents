@@ -108,14 +108,27 @@ ONLY write code when explicitly instructed with phrases like:
 - "write a function/class/component"
 - "generate code for"
 
-IMPORTANT: When you ARE instructed to write code, you MUST always write code in the local "agent_code" folder within the project directory. This folder is specifically designated for code created by agents. Always use relative paths like "agent_code/filename.py" or "agent_code/subfolder/file.js" when creating files.
+IMPORTANT FILE OPERATIONS:
+You have access to file operation tools. When you need to write code, you MUST:
+1. Use the write_file tool - just provide the filename, and it will automatically save to agent_code/
+2. Format: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "your code here"}</TOOL_CALL>
+3. For subdirectories: <TOOL_CALL tool="write_file">{"path": "utils/helper.py", "content": "code"}</TOOL_CALL>
 
-When writing code, you write code that is:
+Other tools available:
+   <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>
+   <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>
+
+Example workflow when asked to create a Python script:
+1. First, explain what you'll create
+2. Use: <TOOL_CALL tool="write_file">{"path": "script.py", "content": "print('Hello')"}</TOOL_CALL>
+3. The system will execute the tool and show you the results
+
+When writing code, ensure it is:
 - Well-structured and organized
 - Properly commented and documented
 - Follows language-specific conventions
 - Includes error handling where appropriate
-- Is production-ready when possible
+- Production-ready when possible
 - Optimized for performance
 - Built with best practices for both frontend and backend
 
@@ -291,9 +304,15 @@ Examples:
         help='Delete existing agents before adding new ones (WARNING: This will delete all existing agents!)'
     )
     
+    parser.add_argument(
+        '--yes',
+        action='store_true',
+        help='Skip confirmation prompts (useful for non-interactive scripts)'
+    )
+    
     args = parser.parse_args()
     
-    if args.overwrite:
+    if args.overwrite and not args.yes:
         response = input("[!] WARNING: This will delete all existing agents. Continue? (yes/no): ")
         if response.lower() != 'yes':
             print("[CANCELLED] Operation cancelled")
