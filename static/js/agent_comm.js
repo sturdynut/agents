@@ -198,7 +198,7 @@ async function loadAgents() {
   }
 }
 
-// Populate agent checkboxes
+// Populate agent checkboxes with drag-and-drop reordering
 async function populateAgentList() {
   const agents = await loadAgents();
   const agentsCheckboxList = document.getElementById("agentsCheckboxList");
@@ -209,10 +209,18 @@ async function populateAgentList() {
         '<p class="text-sm text-red-600">No agents available. Create agents first.</p>';
     } else {
       agentsCheckboxList.innerHTML = "";
-      agents.forEach((agent) => {
+      agents.forEach((agent, index) => {
         const checkboxDiv = document.createElement("div");
-        checkboxDiv.className = "flex items-center space-x-2";
+        checkboxDiv.className = "agent-item flex items-center space-x-2 p-2 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-500 cursor-grab active:cursor-grabbing transition-all";
+        checkboxDiv.draggable = true;
+        checkboxDiv.dataset.agentName = agent.name;
         checkboxDiv.innerHTML = `
+                    <div class="drag-handle text-slate-400 dark:text-slate-500 mr-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8h16M4 16h16"></path>
+                        </svg>
+                    </div>
+                    <span class="order-number text-xs text-slate-500 dark:text-slate-400 w-5 text-center font-mono">${index + 1}</span>
                     <input type="checkbox" 
                            id="agent_${agent.name}" 
                            name="selectedAgents" 
@@ -235,16 +243,103 @@ async function populateAgentList() {
                     </label>
                 `;
         agentsCheckboxList.appendChild(checkboxDiv);
+        
+        // Add drag event listeners
+        checkboxDiv.addEventListener("dragstart", handleDragStart);
+        checkboxDiv.addEventListener("dragend", handleDragEnd);
+        checkboxDiv.addEventListener("dragover", handleDragOver);
+        checkboxDiv.addEventListener("drop", handleDrop);
+        checkboxDiv.addEventListener("dragenter", handleDragEnter);
+        checkboxDiv.addEventListener("dragleave", handleDragLeave);
       });
     }
   }
 }
 
+// Drag and drop state
+let draggedItem = null;
+
+function handleDragStart(e) {
+  draggedItem = this;
+  this.classList.add("opacity-50", "bg-slate-100", "dark:bg-slate-700");
+  e.dataTransfer.effectAllowed = "move";
+  e.dataTransfer.setData("text/plain", this.dataset.agentName);
+}
+
+function handleDragEnd(e) {
+  this.classList.remove("opacity-50", "bg-slate-100", "dark:bg-slate-700");
+  // Remove all drag-over styles
+  document.querySelectorAll(".agent-item").forEach(item => {
+    item.classList.remove("border-indigo-500", "border-t-2", "border-b-2");
+  });
+  draggedItem = null;
+  updateOrderNumbers();
+}
+
+function handleDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "move";
+}
+
+function handleDragEnter(e) {
+  e.preventDefault();
+  if (this !== draggedItem) {
+    this.classList.add("border-indigo-500");
+  }
+}
+
+function handleDragLeave(e) {
+  this.classList.remove("border-indigo-500");
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  if (this !== draggedItem && draggedItem) {
+    const list = this.parentNode;
+    const allItems = [...list.querySelectorAll(".agent-item")];
+    const draggedIndex = allItems.indexOf(draggedItem);
+    const targetIndex = allItems.indexOf(this);
+    
+    if (draggedIndex < targetIndex) {
+      // Moving down - insert after target
+      this.parentNode.insertBefore(draggedItem, this.nextSibling);
+    } else {
+      // Moving up - insert before target
+      this.parentNode.insertBefore(draggedItem, this);
+    }
+    
+    updateOrderNumbers();
+  }
+  this.classList.remove("border-indigo-500");
+}
+
+function updateOrderNumbers() {
+  const agentsCheckboxList = document.getElementById("agentsCheckboxList");
+  if (agentsCheckboxList) {
+    const items = agentsCheckboxList.querySelectorAll(".agent-item");
+    items.forEach((item, index) => {
+      const orderNumber = item.querySelector(".order-number");
+      if (orderNumber) {
+        orderNumber.textContent = index + 1;
+      }
+    });
+  }
+}
+
 function getSelectedAgents() {
-  const checkboxes = document.querySelectorAll(
-    'input[name="selectedAgents"]:checked'
-  );
-  return Array.from(checkboxes).map((cb) => cb.value);
+  // Get agents in their current DOM order (respects drag-and-drop reordering)
+  const agentsCheckboxList = document.getElementById("agentsCheckboxList");
+  if (!agentsCheckboxList) return [];
+  
+  const orderedAgents = [];
+  const items = agentsCheckboxList.querySelectorAll(".agent-item");
+  items.forEach((item) => {
+    const checkbox = item.querySelector('input[name="selectedAgents"]');
+    if (checkbox && checkbox.checked) {
+      orderedAgents.push(checkbox.value);
+    }
+  });
+  return orderedAgents;
 }
 
 // Load previous sessions

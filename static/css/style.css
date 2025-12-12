@@ -889,6 +889,61 @@ header h1 {
     color: #dc3545;
 }
 
+/* Drag and Drop Agent Ordering */
+#agentsCheckboxList .agent-item {
+    background: var(--bg-secondary);
+    padding: 8px 12px;
+    border-radius: 8px;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+#agentsCheckboxList .agent-item:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
+}
+
+#agentsCheckboxList .agent-item.dragging {
+    opacity: 0.5;
+    background: var(--bg-tertiary);
+}
+
+#agentsCheckboxList .agent-item.drag-over {
+    border-color: var(--accent-primary);
+    border-style: dashed;
+}
+
+#agentsCheckboxList .drag-handle {
+    cursor: grab;
+    padding: 4px;
+    border-radius: 4px;
+    transition: background-color 0.15s ease;
+}
+
+#agentsCheckboxList .drag-handle:hover {
+    background: var(--bg-tertiary);
+}
+
+#agentsCheckboxList .drag-handle:active {
+    cursor: grabbing;
+}
+
+#agentsCheckboxList .order-number {
+    background: var(--accent-primary);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 4px;
+    min-width: 20px;
+    text-align: center;
+}
+
 /* Animations */
 @keyframes fadeIn {
     from {
