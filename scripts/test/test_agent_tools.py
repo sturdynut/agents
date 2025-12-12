@@ -229,6 +229,15 @@ class TestWriteFile(unittest.TestCase):
         result = self.agent.write_file(test_path, content)
         
         self.assertEqual(result['size'], len(content))
+    
+    def test_write_file_none_content_fails(self):
+        """Test that write_file returns error when content is None."""
+        test_path = os.path.join(self.temp_dir, 'none_content.txt')
+        result = self.agent.write_file(test_path, None)
+        
+        self.assertFalse(result['success'])
+        self.assertIn('content', result['error'].lower())
+        self.assertFalse(os.path.exists(test_path))
 
 
 class TestCreateFolder(unittest.TestCase):
@@ -685,6 +694,31 @@ class TestExecuteToolCall(unittest.TestCase):
         result = self.agent._execute_tool_call('unknown_tool', {'param': 'value'})
         
         self.assertFalse(result['success'])
+    
+    def test_execute_write_file_with_none_content(self):
+        """Test that write_file fails gracefully when content is None."""
+        test_path = os.path.join(self.temp_dir, 'none_content.txt')
+        
+        result = self.agent._execute_tool_call('write_file', {
+            'path': test_path,
+            'content': None
+        })
+        
+        self.assertFalse(result['success'])
+        self.assertIn('content', result['error'].lower())
+        self.assertFalse(os.path.exists(test_path))
+    
+    def test_execute_write_file_with_missing_content(self):
+        """Test that write_file fails gracefully when content key is missing."""
+        test_path = os.path.join(self.temp_dir, 'missing_content.txt')
+        
+        result = self.agent._execute_tool_call('write_file', {
+            'path': test_path
+        })
+        
+        self.assertFalse(result['success'])
+        self.assertIn('content', result['error'].lower())
+        self.assertFalse(os.path.exists(test_path))
 
 
 class TestAgentInfo(unittest.TestCase):

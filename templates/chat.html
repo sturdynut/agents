@@ -16,6 +16,12 @@
     <style>
         * { font-family: 'Inter', sans-serif; }
         .font-audiowide { font-family: 'Audiowide', cursive; }
+        
+        /* Sidebar transitions */
+        .sidebar-expanded { width: 280px; }
+        .sidebar-collapsed { width: 0; }
+        .sidebar-content { opacity: 1; transition: opacity 0.15s ease; }
+        .sidebar-collapsed .sidebar-content { opacity: 0; pointer-events: none; }
     </style>
 </head>
 <body class="bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-900 dark:to-indigo-950 min-h-screen transition-colors duration-300">
@@ -56,66 +62,105 @@
         </div>
     </header>
 
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-        <!-- Agent Header -->
-        <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 p-4 mb-4">
-            <div class="flex items-center gap-4">
-                <!-- Agent Avatar -->
-                <div class="flex-shrink-0">
-                    <img 
-                        id="agentAvatar"
-                        src="/api/avatar/{{ agent_name }}" 
-                        alt="{{ agent_name }} avatar" 
-                        class="w-14 h-14 rounded-full ring-2 ring-indigo-500/30 shadow-md"
-                    >
+    <!-- Main Content Area with Sidebar -->
+    <div class="flex h-[calc(100vh-135px)]">
+        <!-- Collapsible Left Sidebar -->
+        <aside id="agentSidebar" class="sidebar-expanded flex-shrink-0 transition-all duration-300 ease-in-out overflow-hidden">
+            <div class="sidebar-content w-[280px] h-full bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-r border-slate-200/60 dark:border-slate-700/60 flex flex-col">
+                <!-- Sidebar Header with Collapse Button -->
+                <div class="p-4 border-b border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">Agent Info</span>
+                    <button id="collapseSidebarBtn" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Collapse sidebar">
+                        <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"></path>
+                        </svg>
+                    </button>
                 </div>
-                <!-- Agent Info -->
-                <div class="flex-1 min-w-0">
-                    <h1 class="text-xl font-bold text-slate-900 dark:text-white truncate">{{ agent_name }}</h1>
-                    <p id="agentModel" class="text-sm text-slate-500 dark:text-slate-400">Loading model...</p>
-                    <!-- Available Tools -->
-                    <div id="agentTools" class="mt-2 flex flex-wrap gap-1.5">
-                        <span class="text-xs text-slate-400 dark:text-slate-500">Loading tools...</span>
+                
+                <!-- Agent Avatar & Name -->
+                <div class="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <div class="flex flex-col items-center text-center">
+                        <img 
+                            id="agentAvatar"
+                            src="/api/avatar/{{ agent_name }}" 
+                            alt="{{ agent_name }} avatar" 
+                            class="w-20 h-20 rounded-full ring-3 ring-indigo-500/30 shadow-lg mb-3"
+                        >
+                        <h1 class="text-lg font-bold text-slate-900 dark:text-white">{{ agent_name }}</h1>
                     </div>
                 </div>
-                <!-- Action buttons -->
-                <div class="flex items-center gap-2">
-                    <button id="copyConversationBtn" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Copy conversation to clipboard">
+                
+                <!-- Model Selector -->
+                <div class="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Model</label>
+                    <div class="relative">
+                        <select id="modelSelector" class="w-full text-sm bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 pr-8 text-slate-700 dark:text-slate-300 hover:border-indigo-500 dark:hover:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 cursor-pointer appearance-none transition-colors">
+                            <option value="">Loading...</option>
+                        </select>
+                        <div class="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </div>
+                    </div>
+                    <span id="modelSaveStatus" class="text-xs text-green-600 dark:text-green-400 opacity-0 transition-opacity duration-300 mt-1 block"></span>
+                </div>
+                
+                <!-- Available Tools -->
+                <div class="p-4 border-b border-slate-200/60 dark:border-slate-700/60">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Tools</label>
+                    <div id="agentTools" class="flex flex-wrap gap-1.5">
+                        <span class="text-xs text-slate-400 dark:text-slate-500">Loading...</span>
+                    </div>
+                </div>
+                
+                <!-- Actions (pushed to bottom) -->
+                <div class="mt-auto p-4 space-y-2">
+                    <button id="copyConversationBtn" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors" title="Copy conversation to clipboard">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
                         </svg>
-                        <span id="copyBtnText">Copy</span>
+                        <span id="copyBtnText">Copy Conversation</span>
                     </button>
-                    <a href="/" class="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors">
+                    <a href="/" class="w-full flex items-center justify-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-700/50 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                         </svg>
-                        Back
+                        Back to Agents
                     </a>
                 </div>
             </div>
-        </div>
-
-        <!-- Chat Container - Full Width -->
-        <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 flex flex-col" style="height: calc(100vh - 240px); min-height: 500px;">
-            <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
-                <!-- Messages will appear here -->
-            </div>
-            <div class="border-t border-slate-200 dark:border-slate-700 p-4">
-                <div class="flex gap-3">
-                    <input type="text" id="chatInput" placeholder="Type your message..." autocomplete="off" class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
-                    <button id="addTaskBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 px-5 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md flex items-center gap-2" title="Execute a task with tools">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
-                        </svg>
-                        Task
-                    </button>
-                    <button id="sendBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md">
-                        Send
-                    </button>
+        </aside>
+        
+        <!-- Expand Sidebar Button (shown when collapsed) -->
+        <button id="expandSidebarBtn" class="hidden flex-shrink-0 w-10 bg-white/80 dark:bg-slate-800/80 border-r border-slate-200/60 dark:border-slate-700/60 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-colors flex items-center justify-center" title="Expand sidebar">
+            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"></path>
+            </svg>
+        </button>
+        
+        <!-- Chat Container -->
+        <main class="flex-1 flex flex-col min-w-0 p-4">
+            <div class="flex-1 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 flex flex-col overflow-hidden">
+                <div id="chatMessages" class="flex-1 overflow-y-auto p-6 space-y-4">
+                    <!-- Messages will appear here -->
+                </div>
+                <div class="border-t border-slate-200 dark:border-slate-700 p-4">
+                    <div class="flex gap-3 items-end">
+                        <textarea id="chatInput" placeholder="Type your message... (Shift+Enter for new line)" autocomplete="off" rows="1" class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors resize-none overflow-hidden" style="min-height: 48px; max-height: 200px;"></textarea>
+                        <button id="addTaskBtn" class="bg-amber-500 hover:bg-amber-600 text-white font-medium py-3 px-5 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md flex items-center gap-2 flex-shrink-0" title="Execute a task with tools">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path>
+                            </svg>
+                            Task
+                        </button>
+                        <button id="sendBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-3 px-6 rounded-lg transition-colors duration-200 shadow-sm hover:shadow-md flex-shrink-0">
+                            Send
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
+        </main>
     </div>
 
     <!-- Task Modal -->
@@ -226,6 +271,45 @@
                 const currentTheme = html.classList.contains('dark') ? 'dark' : 'light';
                 applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
             });
+        }
+        
+        // Sidebar collapse/expand functionality
+        const sidebar = document.getElementById('agentSidebar');
+        const collapseBtn = document.getElementById('collapseSidebarBtn');
+        const expandBtn = document.getElementById('expandSidebarBtn');
+        
+        function getSidebarPreference() {
+            return localStorage.getItem('chatSidebarCollapsed') === 'true';
+        }
+        
+        function setSidebarState(collapsed) {
+            if (collapsed) {
+                sidebar.classList.remove('sidebar-expanded');
+                sidebar.classList.add('sidebar-collapsed');
+                expandBtn.classList.remove('hidden');
+                expandBtn.classList.add('flex');
+            } else {
+                sidebar.classList.remove('sidebar-collapsed');
+                sidebar.classList.add('sidebar-expanded');
+                expandBtn.classList.remove('flex');
+                expandBtn.classList.add('hidden');
+            }
+            localStorage.setItem('chatSidebarCollapsed', collapsed);
+        }
+        
+        // Apply saved state on load
+        if (getSidebarPreference()) {
+            setSidebarState(true);
+        }
+        
+        // Collapse button
+        if (collapseBtn) {
+            collapseBtn.addEventListener('click', () => setSidebarState(true));
+        }
+        
+        // Expand button
+        if (expandBtn) {
+            expandBtn.addEventListener('click', () => setSidebarState(false));
         }
     </script>
 </body>

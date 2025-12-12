@@ -604,7 +604,10 @@ class EnhancedAgent:
         
         if tool_name == 'write_file':
             logger.info(f"[Agent {self.name}] Executing write_file(path='{arguments.get('path', '')}')")
-            return self.write_file(arguments.get('path', ''), arguments.get('content', ''))
+            content = arguments.get('content')
+            if content is None:
+                return {'success': False, 'error': 'No content provided for write_file. The "content" parameter is required.'}
+            return self.write_file(arguments.get('path', ''), content)
         elif tool_name == 'read_file':
             logger.info(f"[Agent {self.name}] Executing read_file(path='{arguments.get('path', '')}')")
             return self.read_file(arguments.get('path', ''))
@@ -1461,6 +1464,8 @@ INSTRUCTIONS:
     
     def write_file(self, file_path: str, content: str) -> Dict[str, Any]:
         """Write to a file."""
+        if content is None:
+            return {'success': False, 'error': 'No content provided for write_file. The "content" parameter is required.'}
         logger.info(f"[Agent {self.name}] write_file called with path='{file_path}', content_length={len(content)}")
         try:
             # Convert to Path object

@@ -174,6 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         addMessageToChat(message, true);
         chatInput.value = '';
+        chatInput.style.height = 'auto';
         
         // Add loading message with avatar
         const loadingId = 'loading-' + Date.now();
@@ -225,10 +226,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     if (chatInput && agentName && sendBtn) {
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
+        // Handle Enter to send, Shift+Enter for new line
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
                 sendBtn.click();
             }
+        });
+        
+        // Auto-resize textarea as user types
+        chatInput.addEventListener('input', () => {
+            chatInput.style.height = 'auto';
+            chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
+        });
+        
+        // Handle paste events for auto-resize
+        chatInput.addEventListener('paste', () => {
+            setTimeout(() => {
+                chatInput.style.height = 'auto';
+                chatInput.style.height = Math.min(chatInput.scrollHeight, 200) + 'px';
+            }, 0);
         });
     }
 });
@@ -413,6 +430,150 @@ const TOOL_STYLES = {
     }
 };
 
+// Current agent's model (for tracking changes)
+let currentAgentModel = null;
+
+// Load available models and populate selector
+async function loadModelsForSelector(selectedModel) {
+    const modelSelector = document.getElementById('modelSelector');
+    if (!modelSelector) return;
+    
+    try {
+        const response = await fetch('/api/models');
+        const data = await response.json();
+        const models = data.models || [];
+        
+        modelSelector.innerHTML = '';
+        
+        // Group models: installed first, then not installed
+        const installedModels = models.filter(m => m.installed);
+        const notInstalledModels = models.filter(m => !m.installed);
+        
+        // Helper to check if model matches selected
+        const modelMatches = (modelName, selected) => {
+            if (!selected) return false;
+            const modelBase = modelName.split(':')[0];
+            const selectedBase = selected.split(':')[0];
+            return modelName === selected || modelBase === selectedBase;
+        };
+        
+        // Add installed models group
+        if (installedModels.length > 0) {
+            const installedGroup = document.createElement('optgroup');
+            installedGroup.label = '✓ Installed Models';
+            installedModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name;
+                option.textContent = `${model.name} (${model.size})`;
+                if (modelMatches(model.name, selectedModel)) {
+                    option.selected = true;
+                }
+                installedGroup.appendChild(option);
+            });
+            modelSelector.appendChild(installedGroup);
+        }
+        
+        // Add not installed models group
+        if (notInstalledModels.length > 0) {
+            const notInstalledGroup = document.createElement('optgroup');
+            notInstalledGroup.label = '↓ Available to Download';
+            notInstalledModels.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.name;
+                option.textContent = `${model.name} (${model.size})`;
+                option.classList.add('text-slate-400');
+                if (modelMatches(model.name, selectedModel)) {
+                    option.selected = true;
+                }
+                notInstalledGroup.appendChild(option);
+            });
+            modelSelector.appendChild(notInstalledGroup);
+        }
+        
+        // If selected model not found in list, add it as custom option
+        if (selectedModel && !modelSelector.value) {
+            const customOption = document.createElement('option');
+            customOption.value = selectedModel;
+            customOption.textContent = `${selectedModel} (current)`;
+            customOption.selected = true;
+            modelSelector.insertBefore(customOption, modelSelector.firstChild);
+        }
+        
+    } catch (error) {
+        console.error('Error loading models:', error);
+        modelSelector.innerHTML = '<option value="">Error loading models</option>';
+    }
+}
+
+// Handle model change
+async function handleModelChange(newModel) {
+    if (!agentName || !newModel || newModel === currentAgentModel) return;
+    
+    const modelSelector = document.getElementById('modelSelector');
+    const saveStatus = document.getElementById('modelSaveStatus');
+    
+    // Show saving state
+    if (modelSelector) {
+        modelSelector.disabled = true;
+    }
+    if (saveStatus) {
+        saveStatus.textContent = 'Saving...';
+        saveStatus.classList.remove('opacity-0', 'text-green-600', 'dark:text-green-400', 'text-red-600', 'dark:text-red-400');
+        saveStatus.classList.add('text-slate-500');
+    }
+    
+    try {
+        const response = await fetch(`/api/agents/${encodeURIComponent(agentName)}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ model: newModel })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Failed to update model: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        currentAgentModel = newModel;
+        
+        // Show success
+        if (saveStatus) {
+            saveStatus.textContent = '✓ Saved';
+            saveStatus.classList.remove('text-slate-500');
+            saveStatus.classList.add('text-green-600', 'dark:text-green-400');
+            
+            // Fade out after 2 seconds
+            setTimeout(() => {
+                saveStatus.classList.add('opacity-0');
+            }, 2000);
+        }
+        
+        console.log(`Model changed to: ${newModel}`);
+        
+    } catch (error) {
+        console.error('Error updating model:', error);
+        
+        // Show error and revert selection
+        if (saveStatus) {
+            saveStatus.textContent = '✗ Error';
+            saveStatus.classList.remove('text-slate-500');
+            saveStatus.classList.add('text-red-600', 'dark:text-red-400');
+        }
+        
+        // Revert to previous model
+        if (modelSelector && currentAgentModel) {
+            modelSelector.value = currentAgentModel;
+        }
+        
+    } finally {
+        if (modelSelector) {
+            modelSelector.disabled = false;
+        }
+    }
+}
+
 // Load agent info
 async function loadAgentInfo() {
     try {
@@ -421,10 +582,10 @@ async function loadAgentInfo() {
         const agent = data.agents.find(a => a.name === agentName);
         
         if (agent) {
-            const agentModel = document.getElementById('agentModel');
-            if (agentModel) {
-                agentModel.textContent = `Model: ${agent.model}`;
-            }
+            currentAgentModel = agent.model;
+            
+            // Load models into selector
+            await loadModelsForSelector(agent.model);
             
             // Display tools
             const agentTools = document.getElementById('agentTools');
@@ -445,6 +606,16 @@ async function loadAgentInfo() {
         console.error('Error loading agent info:', error);
     }
 }
+
+// Setup model selector event listener
+document.addEventListener('DOMContentLoaded', () => {
+    const modelSelector = document.getElementById('modelSelector');
+    if (modelSelector) {
+        modelSelector.addEventListener('change', (e) => {
+            handleModelChange(e.target.value);
+        });
+    }
+});
 
 // Copy conversation to clipboard
 function copyConversationToClipboard() {
