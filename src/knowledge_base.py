@@ -201,9 +201,18 @@ class KnowledgeBase:
                 settings TEXT,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
+                tools TEXT,
                 avatar_seed TEXT
             )
         ''')
+        
+        # Migrate existing agents table - add tools column if it doesn't exist
+        try:
+            cursor.execute("SELECT tools FROM agents LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE agents ADD COLUMN tools TEXT")
+            print("[KnowledgeBase] Added tools column to agents table")
         
         # Migrate existing agents table - add avatar_seed column if it doesn't exist
         try:
@@ -359,9 +368,13 @@ class KnowledgeBase:
             query += " AND related_agent = ?"
             params.append(related_agent)
         
-        if session_id:
+        # Session filtering: None means filter for NULL (single-agent context)
+        # A string value filters for that specific session (multi-agent context)
+        if session_id is not None:
             query += " AND session_id = ?"
             params.append(session_id)
+        else:
+            query += " AND session_id IS NULL"
         
         query += " ORDER BY timestamp DESC"
         
@@ -481,9 +494,13 @@ class KnowledgeBase:
             query_sql += " AND interaction_type = ?"
             params.append(interaction_type)
         
-        if session_id:
+        # Session filtering: None means filter for NULL (single-agent context)
+        # A string value filters for that specific session (multi-agent context)
+        if session_id is not None:
             query_sql += " AND session_id = ?"
             params.append(session_id)
+        else:
+            query_sql += " AND session_id IS NULL"
         
         query_sql += " ORDER BY timestamp DESC"
         

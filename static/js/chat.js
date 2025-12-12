@@ -389,6 +389,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Tool display configuration with full Tailwind classes
+const TOOL_STYLES = {
+    write_file: { 
+        label: 'Write', 
+        classes: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400' 
+    },
+    read_file: { 
+        label: 'Read', 
+        classes: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' 
+    },
+    create_folder: { 
+        label: 'Folder', 
+        classes: 'bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400' 
+    },
+    list_directory: { 
+        label: 'List', 
+        classes: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400' 
+    },
+    web_search: { 
+        label: 'Search', 
+        classes: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400' 
+    }
+};
+
 // Load agent info
 async function loadAgentInfo() {
     try {
@@ -400,6 +424,21 @@ async function loadAgentInfo() {
             const agentModel = document.getElementById('agentModel');
             if (agentModel) {
                 agentModel.textContent = `Model: ${agent.model}`;
+            }
+            
+            // Display tools
+            const agentTools = document.getElementById('agentTools');
+            if (agentTools) {
+                const tools = agent.allowed_tools || ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search'];
+                
+                if (tools.length === 0) {
+                    agentTools.innerHTML = '<span class="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400">No tools</span>';
+                } else {
+                    agentTools.innerHTML = tools.map(tool => {
+                        const style = TOOL_STYLES[tool] || { label: tool, classes: 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400' };
+                        return `<span class="text-xs px-2 py-0.5 rounded-full ${style.classes}">${style.label}</span>`;
+                    }).join('');
+                }
             }
         }
     } catch (error) {

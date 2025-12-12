@@ -61,18 +61,30 @@
             <!-- Enhanced Stats Dashboard -->
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <!-- Agents Card -->
-                <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300">
+                <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300 relative group/card">
                     <div class="flex items-center justify-between mb-3">
                         <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                             <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"></path>
-                        </svg>
-                    </div>
-                        <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full">Active</span>
+                            </svg>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/30 px-2 py-1 rounded-full">Active</span>
+                            <div class="relative group/help">
+                                <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                    <div class="font-medium mb-1">AI Agents</div>
+                                    <div class="text-slate-300">The number of AI agents you've created. Each agent can have its own personality, model, and tool permissions.</div>
+                                    <div class="absolute bottom-0 right-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                     <p id="agentCount" class="text-3xl font-bold text-slate-900 dark:text-white">0</p>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Total Agents</p>
-            </div>
+                </div>
 
                 <!-- Messages Card -->
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg transition-all duration-300">
@@ -82,11 +94,23 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
                             </svg>
                         </div>
-                        <div class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
-                            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
-                            </svg>
-                            <span id="messagesTrend">--</span>
+                        <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path>
+                                </svg>
+                                <span id="messagesTrend">--</span>
+                            </div>
+                            <div class="relative group/help">
+                                <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="absolute bottom-full right-0 mb-2 w-48 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                    <div class="font-medium mb-1">Messages</div>
+                                    <div class="text-slate-300">Total chat messages exchanged with your agents. The chart shows recent activity trends.</div>
+                                    <div class="absolute bottom-0 right-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     <p id="messageCount" class="text-3xl font-bold text-slate-900 dark:text-white">0</p>
@@ -111,6 +135,16 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path>
                             </svg>
                         </div>
+                        <div class="relative group/help">
+                            <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="absolute bottom-full right-0 mb-2 w-52 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                <div class="font-medium mb-1">Knowledge Base</div>
+                                <div class="text-slate-300">Stored information and context that agents can access. Includes conversation history and semantic search data.</div>
+                                <div class="absolute bottom-0 right-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                            </div>
+                        </div>
                     </div>
                     <p id="knowledgeCount" class="text-3xl font-bold text-slate-900 dark:text-white">0</p>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Knowledge Entries</p>
@@ -125,13 +159,24 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
                             </svg>
                         </div>
+                        <div class="relative group/help">
+                            <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="absolute bottom-full right-0 mb-2 w-56 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                <div class="font-medium mb-1">Available Tools</div>
+                                <div class="text-slate-300">Actions agents can perform: write/read files, create folders, list directories, and search the web. Control access per agent.</div>
+                                <div class="absolute bottom-0 right-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                            </div>
+                        </div>
                     </div>
-                    <p id="toolUsageCount" class="text-3xl font-bold text-slate-900 dark:text-white">4</p>
+                    <p id="toolUsageCount" class="text-3xl font-bold text-slate-900 dark:text-white">5</p>
                     <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">Available Tools</p>
                     <!-- Tool Pills -->
                     <div class="mt-3 flex flex-wrap gap-1">
                         <span class="text-xs px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">write</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">read</span>
+                        <span class="text-xs px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400">folder</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">list</span>
                         <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400">search</span>
                     </div>
@@ -143,7 +188,19 @@
                 <!-- Recent Activity -->
                 <div class="lg:col-span-2 bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
                     <div class="flex items-center justify-between mb-4">
-                        <h3 class="font-semibold text-slate-900 dark:text-white">Recent Activity</h3>
+                        <div class="flex items-center gap-2">
+                            <h3 class="font-semibold text-slate-900 dark:text-white">Recent Activity</h3>
+                            <div class="relative group/help">
+                                <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <div class="absolute bottom-full left-0 mb-2 w-52 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                    <div class="font-medium mb-1">Recent Activity</div>
+                                    <div class="text-slate-300">Timeline of recent interactions including chats, file operations, and web searches performed by your agents.</div>
+                                    <div class="absolute bottom-0 left-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                                </div>
+                            </div>
+                        </div>
                         <a href="/knowledge" class="text-sm text-indigo-600 dark:text-indigo-400 hover:underline">View all</a>
                     </div>
                     <div id="recentActivity" class="space-y-3">
@@ -173,35 +230,54 @@
                 
                 <!-- Tool Usage Chart -->
                 <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <h3 class="font-semibold text-slate-900 dark:text-white mb-4">Tool Distribution</h3>
+                    <div class="flex items-center gap-2 mb-4">
+                        <h3 class="font-semibold text-slate-900 dark:text-white">Tool Distribution</h3>
+                        <div class="relative group/help">
+                            <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="absolute bottom-full left-0 mb-2 w-52 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                <div class="font-medium mb-1">Tool Distribution</div>
+                                <div class="text-slate-300">Breakdown of how frequently each tool is used by your agents. Helps understand agent behavior patterns.</div>
+                                <div class="absolute bottom-0 left-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="space-y-3" id="toolDistribution">
                         <div class="flex items-center gap-3">
                             <span class="w-16 text-xs text-slate-500 dark:text-slate-400">write_file</span>
                             <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style="width: 35%"></div>
+                                <div class="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full" style="width: 30%"></div>
                             </div>
-                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">35%</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">30%</span>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="w-16 text-xs text-slate-500 dark:text-slate-400">read_file</span>
                             <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" style="width: 28%"></div>
+                                <div class="h-full bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full" style="width: 25%"></div>
                             </div>
-                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">28%</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">25%</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="w-16 text-xs text-slate-500 dark:text-slate-400">folder</span>
+                            <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                <div class="h-full bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full" style="width: 12%"></div>
+                            </div>
+                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">12%</span>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="w-16 text-xs text-slate-500 dark:text-slate-400">list_dir</span>
                             <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full" style="width: 22%"></div>
+                                <div class="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full" style="width: 20%"></div>
                             </div>
-                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">22%</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">20%</span>
                         </div>
                         <div class="flex items-center gap-3">
                             <span class="w-16 text-xs text-slate-500 dark:text-slate-400">web_search</span>
                             <div class="flex-1 h-2 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                <div class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style="width: 15%"></div>
+                                <div class="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full" style="width: 13%"></div>
                             </div>
-                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">15%</span>
+                            <span class="text-xs text-slate-500 dark:text-slate-400 w-8">13%</span>
                         </div>
                     </div>
                 </div>
@@ -210,7 +286,19 @@
             <!-- Agents Section -->
             <div class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-sm border border-slate-200/60 dark:border-slate-700/60 p-6">
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Agents</h2>
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-xl font-bold text-slate-900 dark:text-white">Your Agents</h2>
+                        <div class="relative group/help">
+                            <svg class="w-4 h-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 cursor-help" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <div class="absolute bottom-full left-0 mb-2 w-56 p-2 bg-slate-900 dark:bg-slate-700 text-white text-xs rounded-lg opacity-0 invisible group-hover/help:opacity-100 group-hover/help:visible transition-all duration-200 z-50 shadow-lg">
+                                <div class="font-medium mb-1">Your Agents</div>
+                                <div class="text-slate-300">Your AI assistants. Each agent has its own model, personality (system prompt), and tool permissions. Click "Chat" to start a conversation.</div>
+                                <div class="absolute bottom-0 left-3 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900 dark:bg-slate-700"></div>
+                            </div>
+                        </div>
+                    </div>
                     <button id="createAgentBtn" class="px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm hover:shadow-md">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path>
@@ -238,7 +326,13 @@
                     </div>
                     <div>
                         <label for="agentModel" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Model</label>
-                        <input type="text" id="agentModel" name="model" value="llama3.2" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                        <select id="agentModel" name="model" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                            <option value="llama3.2">Loading models...</option>
+                        </select>
+                        <p id="modelHint" class="mt-2 text-xs text-slate-500 dark:text-slate-400 hidden">
+                            <span class="text-amber-600 dark:text-amber-400">⚠️ Model not installed.</span> 
+                            Download with: <code class="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">ollama pull <span id="modelToDownload">model_name</span></code>
+                        </p>
                     </div>
                     <div>
                         <label for="systemPrompt" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">System Prompt</label>
@@ -269,6 +363,13 @@
                                 <label for="tool_read_file" class="ml-3 text-sm">
                                     <span class="font-medium text-slate-900 dark:text-white">read_file</span>
                                     <span class="text-slate-600 dark:text-slate-400"> - Read file contents</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="tool_create_folder" name="tools" value="create_folder" checked class="w-4 h-4 text-indigo-600 border-slate-300 dark:border-slate-500 rounded focus:ring-indigo-500 bg-white dark:bg-slate-600">
+                                <label for="tool_create_folder" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900 dark:text-white">create_folder</span>
+                                    <span class="text-slate-600 dark:text-slate-400"> - Create new folders/directories</span>
                                 </label>
                             </div>
                             <div class="flex items-center">
@@ -331,7 +432,13 @@
                     </div>
                     <div>
                         <label for="editAgentModel" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Model</label>
-                        <input type="text" id="editAgentModel" name="model" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                        <select id="editAgentModel" name="model" required class="w-full px-4 py-2.5 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-colors">
+                            <option value="">Loading models...</option>
+                        </select>
+                        <p id="editModelHint" class="mt-2 text-xs text-slate-500 dark:text-slate-400 hidden">
+                            <span class="text-amber-600 dark:text-amber-400">⚠️ Model not installed.</span> 
+                            Download with: <code class="bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded text-slate-700 dark:text-slate-300">ollama pull <span id="editModelToDownload">model_name</span></code>
+                        </p>
                     </div>
                     <div>
                         <label for="editSystemPrompt" class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">System Prompt</label>
@@ -362,6 +469,13 @@
                                 <label for="edit_tool_read_file" class="ml-3 text-sm">
                                     <span class="font-medium text-slate-900 dark:text-white">read_file</span>
                                     <span class="text-slate-600 dark:text-slate-400"> - Read file contents</span>
+                                </label>
+                            </div>
+                            <div class="flex items-center">
+                                <input type="checkbox" id="edit_tool_create_folder" name="tools" value="create_folder" class="w-4 h-4 text-indigo-600 border-slate-300 dark:border-slate-500 rounded focus:ring-indigo-500 bg-white dark:bg-slate-600">
+                                <label for="edit_tool_create_folder" class="ml-3 text-sm">
+                                    <span class="font-medium text-slate-900 dark:text-white">create_folder</span>
+                                    <span class="text-slate-600 dark:text-slate-400"> - Create new folders/directories</span>
                                 </label>
                             </div>
                             <div class="flex items-center">

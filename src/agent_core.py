@@ -77,6 +77,67 @@ class OllamaClient:
             else:
                 raise Exception(f"Failed to communicate with Ollama: {error_msg}")
     
+    def chat_with_tools(self, model: str, messages: List[Dict[str, Any]], 
+                        tools: List[Dict[str, Any]],
+                        temperature: float = 0.7, max_tokens: int = 2048) -> Dict[str, Any]:
+        """Send chat request with native tool calling support.
+        
+        Args:
+            model: Ollama model name
+            messages: Chat messages
+            tools: List of tool definitions in Ollama format
+            temperature: Sampling temperature
+            max_tokens: Maximum tokens to generate
+            
+        Returns:
+            Dict with 'content' (str), 'tool_calls' (list of tool calls), 'tools_supported' (bool)
+        """
+        if ollama is None:
+            raise Exception("Ollama package not installed. Install with: pip install ollama")
+        
+        try:
+            response = ollama.chat(
+                model=model,
+                messages=messages,
+                tools=tools,
+                options={
+                    'temperature': temperature,
+                    'num_predict': max_tokens
+                }
+            )
+            
+            if not response or 'message' not in response:
+                raise Exception("Invalid response from Ollama: missing 'message' field")
+            
+            message = response['message']
+            content = message.get('content', '')
+            tool_calls = message.get('tool_calls', [])
+            
+            return {
+                'content': content,
+                'tool_calls': tool_calls,
+                'tools_supported': True
+            }
+            
+        except ConnectionError as e:
+            raise Exception(f"Cannot connect to Ollama. Is Ollama running? Error: {str(e)}")
+        except Exception as e:
+            error_msg = str(e)
+            # Check if model doesn't support tools
+            if "does not support tools" in error_msg.lower():
+                logger.warning(f"Model '{model}' does not support native tool calling, falling back to prompt-based")
+                return {
+                    'content': '',
+                    'tool_calls': [],
+                    'tools_supported': False
+                }
+            if "model" in error_msg.lower() or "not found" in error_msg.lower():
+                raise Exception(f"Model '{model}' not found. Make sure you've downloaded it with: ollama pull {model}")
+            elif "connection" in error_msg.lower() or "refused" in error_msg.lower():
+                raise Exception(f"Cannot connect to Ollama at {self.api_endpoint}. Is Ollama running?")
+            else:
+                raise Exception(f"Failed to communicate with Ollama: {error_msg}")
+    
     def check_model(self, model: str) -> bool:
         """Check if model is available."""
         if ollama is None:
@@ -420,6 +481,146 @@ class EnhancedAgent:
             'timestamp': datetime.utcnow().isoformat()
         })
     
+    def _get_ollama_tools(self) -> List[Dict[str, Any]]:
+        """Generate Ollama-format tool definitions for native tool calling.
+        
+        Returns:
+            List of tool definitions in Ollama format
+        """
+        tool_definitions = {
+            'write_file': {
+                'type': 'function',
+                'function': {
+                    'name': 'write_file',
+                    'description': 'Write content to a file. Creates or overwrites the file. Files are saved to the agent_code/ folder.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {
+                                'type': 'string',
+                                'description': 'The filename or path to write to (e.g., "game.py", "src/utils.js")'
+                            },
+                            'content': {
+                                'type': 'string',
+                                'description': 'The content to write to the file'
+                            }
+                        },
+                        'required': ['path', 'content']
+                    }
+                }
+            },
+            'read_file': {
+                'type': 'function',
+                'function': {
+                    'name': 'read_file',
+                    'description': 'Read the contents of a file.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {
+                                'type': 'string',
+                                'description': 'The filename or path to read from'
+                            }
+                        },
+                        'required': ['path']
+                    }
+                }
+            },
+            'create_folder': {
+                'type': 'function',
+                'function': {
+                    'name': 'create_folder',
+                    'description': 'Create a new folder/directory.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {
+                                'type': 'string',
+                                'description': 'The folder path to create (e.g., "my_project", "src/components")'
+                            }
+                        },
+                        'required': ['path']
+                    }
+                }
+            },
+            'list_directory': {
+                'type': 'function',
+                'function': {
+                    'name': 'list_directory',
+                    'description': 'List the contents of a directory.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'path': {
+                                'type': 'string',
+                                'description': 'The directory path to list (use "." for current directory)'
+                            }
+                        },
+                        'required': ['path']
+                    }
+                }
+            },
+            'web_search': {
+                'type': 'function',
+                'function': {
+                    'name': 'web_search',
+                    'description': 'Search the web for information.',
+                    'parameters': {
+                        'type': 'object',
+                        'properties': {
+                            'query': {
+                                'type': 'string',
+                                'description': 'The search query'
+                            },
+                            'max_results': {
+                                'type': 'integer',
+                                'description': 'Maximum number of results to return (default: 5)'
+                            }
+                        },
+                        'required': ['query']
+                    }
+                }
+            }
+        }
+        
+        return [tool_definitions[tool] for tool in self.allowed_tools if tool in tool_definitions]
+    
+    def _execute_tool_call(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a single tool call.
+        
+        Args:
+            tool_name: Name of the tool to execute
+            arguments: Tool arguments
+            
+        Returns:
+            Tool execution result
+        """
+        if tool_name not in self.allowed_tools:
+            logger.warning(f"[Agent {self.name}] Tool '{tool_name}' access DENIED. Allowed: {self.allowed_tools}")
+            return {
+                'success': False, 
+                'error': f'Access denied: Tool "{tool_name}" is not available for this agent.'
+            }
+        
+        if tool_name == 'write_file':
+            logger.info(f"[Agent {self.name}] Executing write_file(path='{arguments.get('path', '')}')")
+            return self.write_file(arguments.get('path', ''), arguments.get('content', ''))
+        elif tool_name == 'read_file':
+            logger.info(f"[Agent {self.name}] Executing read_file(path='{arguments.get('path', '')}')")
+            return self.read_file(arguments.get('path', ''))
+        elif tool_name == 'create_folder':
+            logger.info(f"[Agent {self.name}] Executing create_folder(path='{arguments.get('path', '')}')")
+            return self.create_folder(arguments.get('path', ''))
+        elif tool_name == 'list_directory':
+            logger.info(f"[Agent {self.name}] Executing list_directory(path='{arguments.get('path', '.')}')")
+            return self.list_directory(arguments.get('path', '.'))
+        elif tool_name == 'web_search':
+            logger.info(f"[Agent {self.name}] Executing web_search(query='{arguments.get('query', '')}')")
+            return self.web_search(arguments.get('query', ''), arguments.get('max_results', 5))
+        else:
+            logger.warning(f"[Agent {self.name}] Unknown tool: {tool_name}")
+            return {'success': False, 'error': f'Unknown tool: {tool_name}'}
+    
     def _get_tools_info(self) -> str:
         """Generate tools information based on allowed tools.
         
@@ -556,21 +757,18 @@ class EnhancedAgent:
         return "\n\n".join(context_parts) if context_parts else ""
     
     def chat(self, user_message: str) -> str:
-        """Chat with the agent with tool calling support."""
+        """Chat with the agent with native Ollama tool calling support."""
         logger.info(f"[Agent {self.name}] chat() called with message: '{user_message[:100]}...'")
         logger.debug(f"[Agent {self.name}] Allowed tools: {self.allowed_tools}")
         
         # Get context from knowledge base using semantic search
         context = self._get_context(query=user_message)
         
-        # Build tools information based on allowed tools
-        tools_info = self._get_tools_info()
-        
-        # Build prompt with context
+        # Build prompt with context (no XML tool info needed with native tool calling)
         if context:
-            full_prompt = f"{context}\n\n{tools_info}\n\nUser: {user_message}"
+            full_prompt = f"{context}\n\nUser: {user_message}"
         else:
-            full_prompt = f"{tools_info}\n\nUser: {user_message}"
+            full_prompt = user_message
         
         messages = self.conversation_history + [{
             'role': 'user',
@@ -580,21 +778,93 @@ class EnhancedAgent:
         temperature = self.settings.get('temperature', 0.7)
         max_tokens = self.settings.get('max_tokens', 2048)
         
-        logger.debug(f"[Agent {self.name}] Calling Ollama model '{self.model}' with {len(messages)} messages")
+        # Get Ollama tool definitions
+        ollama_tools = self._get_ollama_tools()
+        
+        logger.debug(f"[Agent {self.name}] Calling Ollama model '{self.model}' with {len(messages)} messages and {len(ollama_tools)} tools")
         
         try:
-            response = self.client.chat(
-                self.model,
-                messages,
-                temperature=temperature,
-                max_tokens=max_tokens
-            )
+            tool_results = []
+            final_response = ""
+            use_xml_fallback = False
             
-            logger.info(f"[Agent {self.name}] Got response from LLM, length={len(response)} chars")
-            logger.debug(f"[Agent {self.name}] LLM response preview: {response[:200]}...")
+            if ollama_tools:
+                # Try native tool calling first
+                response_data = self.client.chat_with_tools(
+                    self.model,
+                    messages,
+                    tools=ollama_tools,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                
+                # Check if model supports native tools
+                if not response_data.get('tools_supported', True):
+                    # Model doesn't support native tools - use XML-based prompt
+                    logger.info(f"[Agent {self.name}] Model doesn't support native tools, using XML-based approach")
+                    use_xml_fallback = True
+                else:
+                    content = response_data.get('content', '')
+                    tool_calls = response_data.get('tool_calls', [])
+                    
+                    logger.info(f"[Agent {self.name}] Got response: content={len(content)} chars, tool_calls={len(tool_calls)}")
+                    
+                    if tool_calls:
+                        logger.info(f"[Agent {self.name}] Processing {len(tool_calls)} native tool call(s)")
+                        
+                        for tool_call in tool_calls:
+                            func = tool_call.get('function', {})
+                            tool_name = func.get('name', '')
+                            arguments = func.get('arguments', {})
+                            
+                            logger.info(f"[Agent {self.name}] Executing tool: {tool_name} with args: {arguments}")
+                            
+                            result = self._execute_tool_call(tool_name, arguments)
+                            
+                            if result.get('success'):
+                                logger.info(f"[Agent {self.name}] Tool '{tool_name}' SUCCESS")
+                            else:
+                                logger.error(f"[Agent {self.name}] Tool '{tool_name}' FAILED: {result.get('error')}")
+                            
+                            tool_results.append({
+                                'tool': tool_name,
+                                'params': arguments,
+                                'result': result
+                            })
+                    
+                    final_response = content
+            else:
+                use_xml_fallback = True
             
-            # Parse and execute tool calls
-            modified_response, tool_results = self._parse_and_execute_tools(response)
+            # Use XML-based approach if native tools aren't supported or no tools defined
+            if use_xml_fallback:
+                # Add XML tool instructions to prompt
+                tools_info = self._get_tools_info()
+                if context:
+                    xml_prompt = f"{context}\n\n{tools_info}\n\nUser: {user_message}"
+                else:
+                    xml_prompt = f"{tools_info}\n\nUser: {user_message}"
+                
+                xml_messages = self.conversation_history + [{
+                    'role': 'user',
+                    'content': xml_prompt
+                }]
+                
+                response = self.client.chat(
+                    self.model,
+                    xml_messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens
+                )
+                final_response = response
+            
+            # Also try XML-based tool parsing as fallback (for backwards compatibility)
+            if not tool_results and final_response:
+                xml_response, xml_tool_results = self._parse_and_execute_tools(final_response)
+                if xml_tool_results:
+                    logger.info(f"[Agent {self.name}] Found {len(xml_tool_results)} tool(s) via XML parsing fallback")
+                    tool_results = xml_tool_results
+                    final_response = xml_response
             
             logger.info(f"[Agent {self.name}] Tool execution complete. {len(tool_results)} tool(s) executed")
             
@@ -610,7 +880,7 @@ class EnhancedAgent:
                     else:
                         tool_feedback += f"✗ Error: {tool_result['result'].get('error', 'Unknown')}"
                     tool_feedback += "\n"
-                modified_response += tool_feedback
+                final_response += tool_feedback
             
             # Update conversation history
             self.conversation_history.append({
@@ -619,7 +889,7 @@ class EnhancedAgent:
             })
             self.conversation_history.append({
                 'role': 'assistant',
-                'content': modified_response
+                'content': final_response
             })
             
             # Store in knowledge base
@@ -627,12 +897,12 @@ class EnhancedAgent:
                 self.knowledge_base.add_interaction(
                     agent_name=self.name,
                     interaction_type='user_chat',
-                    content=f"User: {user_message}\nAgent: {modified_response}",
-                    metadata={'user_message': user_message, 'agent_response': modified_response, 'tools_used': len(tool_results) > 0},
+                    content=f"User: {user_message}\nAgent: {final_response}",
+                    metadata={'user_message': user_message, 'agent_response': final_response, 'tools_used': len(tool_results) > 0},
                     session_id=self.session_id
                 )
             
-            return modified_response
+            return final_response
         except Exception as e:
             error_msg = f"Error: {str(e)}"
             if self.knowledge_base:
@@ -822,6 +1092,22 @@ class EnhancedAgent:
             alt_pattern = r'<TOOL_CALL tool="([^"]+)">\s*(\{[\s\S]*?\})\s*(?:\}+|$)'
             matches = re.findall(alt_pattern, response, re.DOTALL)
         
+        # Try format: <TOOL_CALL>{"tool": "name", "params": {...}}</TOOL_CALL>
+        if not matches:
+            json_tool_pattern = r'<TOOL_CALL>\s*(\{[\s\S]*?\})\s*</TOOL_CALL>'
+            json_matches = re.findall(json_tool_pattern, response, re.DOTALL)
+            for json_str in json_matches:
+                try:
+                    data = json.loads(json_str)
+                    tool_name = data.get('tool', '')
+                    params = data.get('params', {})
+                    if tool_name and params:
+                        # Convert to the expected format (tool_name, params_json_str)
+                        matches.append((tool_name, json.dumps(params)))
+                        logger.info(f"[Agent {self.name}] Parsed JSON-format tool call: {tool_name}")
+                except json.JSONDecodeError:
+                    logger.warning(f"[Agent {self.name}] Failed to parse JSON tool call: {json_str[:100]}")
+        
         # If still no matches but we see TOOL_CALL tags, try to extract JSON more carefully
         if not matches and '<TOOL_CALL' in response:
             # Find all TOOL_CALL occurrences and extract JSON with balanced braces
@@ -956,28 +1242,28 @@ class EnhancedAgent:
         return modified_response, tool_results
     
     def execute_task(self, task: str) -> str:
-        """Execute a single task with tool calling support."""
+        """Execute a single task with native Ollama tool calling support."""
         # Get semantically relevant context
         context = self._get_context(query=task)
         
-        # Build task prompt with tool calling instructions based on allowed tools
-        tools_info = self._get_tools_info()
-        
+        # Build task prompt (simplified - no XML tool instructions needed)
         task_prompt = f"""Execute: {task}
 
 {context if context else ''}
 
-{tools_info}
-
 INSTRUCTIONS:
-1. Take CONCRETE ACTION using the tools above
-2. If this task involves writing code, use write_file to ACTUALLY create the file
-3. Don't just describe what you would do - DO IT using tool calls
-4. Summarize what you accomplished after executing tools"""
+1. Take CONCRETE ACTION using the tools available to you
+2. If this task involves creating folders, use the create_folder tool
+3. If this task involves writing code, use the write_file tool to ACTUALLY create the file
+4. Don't just describe what you would do - DO IT using tool calls
+5. Summarize what you accomplished after executing tools"""
 
         max_iterations = 3  # Allow agent to use tools iteratively
         iteration = 0
         accumulated_response = ""
+        
+        # Get Ollama tool definitions
+        ollama_tools = self._get_ollama_tools()
         
         while iteration < max_iterations:
             messages = self.conversation_history + [{
@@ -989,19 +1275,87 @@ INSTRUCTIONS:
             max_tokens = self.settings.get('max_tokens', 2048)
             
             try:
-                response = self.client.chat(
-                    self.model,
-                    messages,
-                    temperature=temperature,
-                    max_tokens=max_tokens
-                )
+                tool_results = []
+                response_content = ""
                 
-                # Parse and execute tool calls
-                modified_response, tool_results = self._parse_and_execute_tools(response)
+                use_xml_fallback = False
+                
+                if ollama_tools:
+                    # Try native tool calling first
+                    response_data = self.client.chat_with_tools(
+                        self.model,
+                        messages,
+                        tools=ollama_tools,
+                        temperature=temperature,
+                        max_tokens=max_tokens
+                    )
+                    
+                    # Check if model supports native tools
+                    if not response_data.get('tools_supported', True):
+                        logger.info(f"[Agent {self.name}] Model doesn't support native tools, using XML-based approach")
+                        use_xml_fallback = True
+                    else:
+                        response_content = response_data.get('content', '')
+                        tool_calls = response_data.get('tool_calls', [])
+                        
+                        logger.info(f"[Agent {self.name}] Task response: content={len(response_content)} chars, tool_calls={len(tool_calls)}")
+                        
+                        if tool_calls:
+                            for tool_call in tool_calls:
+                                func = tool_call.get('function', {})
+                                tool_name = func.get('name', '')
+                                arguments = func.get('arguments', {})
+                                
+                                logger.info(f"[Agent {self.name}] Task executing tool: {tool_name}")
+                                
+                                result = self._execute_tool_call(tool_name, arguments)
+                                tool_results.append({
+                                    'tool': tool_name,
+                                    'params': arguments,
+                                    'result': result
+                                })
+                else:
+                    use_xml_fallback = True
+                
+                # Use XML-based approach if native tools aren't supported
+                if use_xml_fallback:
+                    tools_info = self._get_tools_info()
+                    xml_task_prompt = f"""Execute: {task}
+
+{context if context else ''}
+
+{tools_info}
+
+INSTRUCTIONS:
+1. Take CONCRETE ACTION using the tools above
+2. If this task involves creating folders, use create_folder
+3. If this task involves writing code, use write_file to ACTUALLY create the file
+4. Don't just describe what you would do - DO IT using tool calls
+5. Summarize what you accomplished after executing tools"""
+                    
+                    xml_messages = self.conversation_history + [{
+                        'role': 'user',
+                        'content': xml_task_prompt if iteration == 0 else f"Continue with task: {task}\n\nPrevious actions: {accumulated_response}"
+                    }]
+                    
+                    response_content = self.client.chat(
+                        self.model,
+                        xml_messages,
+                        temperature=temperature,
+                        max_tokens=max_tokens
+                    )
+                
+                # Also try XML-based tool parsing as fallback
+                if not tool_results and response_content:
+                    xml_response, xml_tool_results = self._parse_and_execute_tools(response_content)
+                    if xml_tool_results:
+                        logger.info(f"[Agent {self.name}] Task found {len(xml_tool_results)} tool(s) via XML fallback")
+                        tool_results = xml_tool_results
+                        response_content = xml_response
                 
                 # If no tools were called, we're done
                 if not tool_results:
-                    accumulated_response += modified_response
+                    accumulated_response += response_content
                     break
                 
                 # Build feedback for agent about tool execution
@@ -1019,7 +1373,7 @@ INSTRUCTIONS:
                         tool_feedback += f"✗ Error: {tool_result['result'].get('error', 'Unknown')}"
                     tool_feedback += "\n"
                 
-                accumulated_response += modified_response + tool_feedback
+                accumulated_response += response_content + tool_feedback
                 task_prompt = tool_feedback  # Feed results back for next iteration
                 
                 iteration += 1

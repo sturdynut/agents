@@ -10,7 +10,9 @@ The system currently supports the following tools:
 
 1. **write_file**: Write content to files in the `agent_code` directory
 2. **read_file**: Read file contents from the filesystem
-3. **list_directory**: List contents of directories
+3. **create_folder**: Create new folders/directories
+4. **list_directory**: List contents of directories
+5. **web_search**: Search the web for information
 
 ## How It Works
 

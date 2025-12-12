@@ -193,6 +193,84 @@ def get_available_tools():
     return jsonify(tools)
 
 
+@app.route('/api/models', methods=['GET'])
+def get_available_models():
+    """Get available and popular Ollama models."""
+    # Popular Ollama models with descriptions
+    popular_models = [
+        {'name': 'llama3.2', 'description': 'Meta Llama 3.2 - Fast and capable', 'size': '2B'},
+        {'name': 'llama3.2:1b', 'description': 'Meta Llama 3.2 1B - Lightweight', 'size': '1B'},
+        {'name': 'llama3.1', 'description': 'Meta Llama 3.1 - Powerful general purpose', 'size': '8B'},
+        {'name': 'llama3.1:70b', 'description': 'Meta Llama 3.1 70B - Most capable', 'size': '70B'},
+        {'name': 'mistral', 'description': 'Mistral 7B - Fast and efficient', 'size': '7B'},
+        {'name': 'mixtral', 'description': 'Mixtral 8x7B - MoE architecture', 'size': '47B'},
+        {'name': 'codellama', 'description': 'Code Llama - Optimized for code', 'size': '7B'},
+        {'name': 'codellama:34b', 'description': 'Code Llama 34B - Advanced coding', 'size': '34B'},
+        {'name': 'deepseek-coder', 'description': 'DeepSeek Coder - Code generation', 'size': '6.7B'},
+        {'name': 'deepseek-coder:33b', 'description': 'DeepSeek Coder 33B - Advanced', 'size': '33B'},
+        {'name': 'phi3', 'description': 'Microsoft Phi-3 - Compact and fast', 'size': '3.8B'},
+        {'name': 'phi3:medium', 'description': 'Microsoft Phi-3 Medium', 'size': '14B'},
+        {'name': 'gemma2', 'description': 'Google Gemma 2 - Efficient', 'size': '9B'},
+        {'name': 'gemma2:2b', 'description': 'Google Gemma 2 2B - Lightweight', 'size': '2B'},
+        {'name': 'qwen2.5', 'description': 'Alibaba Qwen 2.5 - Multilingual', 'size': '7B'},
+        {'name': 'qwen2.5:72b', 'description': 'Alibaba Qwen 2.5 72B - Large', 'size': '72B'},
+        {'name': 'qwen2.5-coder', 'description': 'Qwen 2.5 Coder - Code focused', 'size': '7B'},
+        {'name': 'command-r', 'description': 'Cohere Command R - RAG optimized', 'size': '35B'},
+        {'name': 'neural-chat', 'description': 'Intel Neural Chat - Conversational', 'size': '7B'},
+        {'name': 'starling-lm', 'description': 'Starling LM - RLHF tuned', 'size': '7B'},
+        {'name': 'wizardcoder', 'description': 'WizardCoder - Code generation', 'size': '7B'},
+        {'name': 'nomic-embed-text', 'description': 'Nomic Embed - Text embeddings', 'size': '137M'},
+    ]
+    
+    # Get installed models from Ollama
+    installed_models = []
+    try:
+        import ollama
+        models = ollama.list()
+        if isinstance(models, dict) and 'models' in models:
+            installed_models = [m.get('name', '') for m in models['models']]
+        elif isinstance(models, list):
+            installed_models = [m.get('name', '') if isinstance(m, dict) else str(m) for m in models]
+    except Exception as e:
+        print(f"Warning: Could not fetch Ollama models: {e}")
+    
+    # Get base names of installed models for matching
+    installed_base_names = set()
+    for inst in installed_models:
+        # Handle formats like "deepseek-coder:6.7b-instruct-q4_K_M" -> "deepseek-coder"
+        base = inst.split(':')[0]
+        installed_base_names.add(base)
+        installed_base_names.add(inst)  # Also add full name
+    
+    # Mark which models are installed
+    for model in popular_models:
+        model_base = model['name'].split(':')[0]
+        # Check if base name matches any installed model's base name
+        model['installed'] = (
+            model_base in installed_base_names or 
+            model['name'] in installed_base_names or
+            any(inst.startswith(model_base) for inst in installed_models)
+        )
+    
+    # Add any installed models not in the popular list
+    popular_base_names = set(m['name'].split(':')[0] for m in popular_models)
+    for inst_model in installed_models:
+        base_name = inst_model.split(':')[0]
+        if base_name not in popular_base_names:
+            popular_models.insert(0, {
+                'name': inst_model,
+                'description': 'Installed model',
+                'size': 'Unknown',
+                'installed': True
+            })
+            popular_base_names.add(base_name)  # Don't add duplicates
+    
+    return jsonify({
+        'models': popular_models,
+        'installed': installed_models
+    })
+
+
 @app.route('/api/agents', methods=['GET'])
 def list_agents():
     """List all agents."""
@@ -205,7 +283,7 @@ def create_agent():
     """Create a new agent."""
     data = request.json
     name = data.get('name')
-    model = data.get('model', 'llama3.2')
+    model = data.get('model', 'deepseek-coder')
     system_prompt = data.get('system_prompt', '')
     settings = data.get('settings', {})
     tools = data.get('tools', None)  # None means all tools enabled
@@ -218,7 +296,7 @@ def create_agent():
     
     # Validate tools if provided
     if tools is not None:
-        available_tools = ['write_file', 'read_file', 'list_directory', 'web_search']
+        available_tools = ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
         invalid_tools = [t for t in tools if t not in available_tools]
         if invalid_tools:
             return jsonify({
@@ -275,7 +353,7 @@ def update_agent(agent_name):
     
     # Validate tools if provided
     if tools is not None:
-        available_tools = ['write_file', 'read_file', 'list_directory', 'web_search']
+        available_tools = ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
         invalid_tools = [t for t in tools if t not in available_tools]
         if invalid_tools:
             return jsonify({

@@ -12,6 +12,7 @@ async function apiRequest(endpoint, options = {}) {
   const response = await fetch(`${API_BASE}${endpoint}`, {
     headers: {
       "Content-Type": "application/json",
+      "Cache-Control": "no-cache",
       ...options.headers,
     },
     ...options,
@@ -43,6 +44,119 @@ async function loadStats() {
   } catch (error) {
     console.error("Error loading stats:", error);
     return { agents_count: 0, messages_count: 0 };
+  }
+}
+
+// Model management
+let cachedModels = null;
+
+async function loadModels() {
+  if (cachedModels) return cachedModels;
+  try {
+    const data = await apiRequest("/models");
+    cachedModels = data;
+    return data;
+  } catch (error) {
+    console.error("Error loading models:", error);
+    return { models: [], installed: [] };
+  }
+}
+
+function populateModelDropdown(selectElement, selectedModel = 'deepseek-coder', hintElement = null, modelNameElement = null) {
+  if (!selectElement) return;
+  
+  loadModels().then(data => {
+    const models = data.models || [];
+    const installed = data.installed || [];
+    
+    selectElement.innerHTML = '';
+    
+    // Helper to check if model matches selected (handles base name matching)
+    const modelMatches = (modelName, selected) => {
+      if (!selected) return false;
+      const modelBase = modelName.split(':')[0];
+      const selectedBase = selected.split(':')[0];
+      return modelName === selected || modelBase === selectedBase;
+    };
+    
+    // Check if selected model is installed (by base name)
+    const selectedBase = selectedModel ? selectedModel.split(':')[0] : '';
+    const isSelectedInstalled = models.some(m => m.installed && modelMatches(m.name, selectedModel));
+    
+    // Group models: installed first, then not installed
+    const installedModels = models.filter(m => m.installed);
+    const notInstalledModels = models.filter(m => !m.installed);
+    
+    let selectedFound = false;
+    
+    // Add installed models group
+    if (installedModels.length > 0) {
+      const installedGroup = document.createElement('optgroup');
+      installedGroup.label = '✓ Installed Models';
+      installedModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.name;
+        option.textContent = `${model.name} - ${model.description} (${model.size})`;
+        option.dataset.installed = 'true';
+        if (modelMatches(model.name, selectedModel)) {
+          option.selected = true;
+          selectedFound = true;
+        }
+        installedGroup.appendChild(option);
+      });
+      selectElement.appendChild(installedGroup);
+    }
+    
+    // Add not installed models group
+    if (notInstalledModels.length > 0) {
+      const notInstalledGroup = document.createElement('optgroup');
+      notInstalledGroup.label = '↓ Available to Download';
+      notInstalledModels.forEach(model => {
+        const option = document.createElement('option');
+        option.value = model.name;
+        option.textContent = `${model.name} - ${model.description} (${model.size})`;
+        option.dataset.installed = 'false';
+        // Only select from not-installed if not found in installed
+        if (!selectedFound && modelMatches(model.name, selectedModel)) {
+          option.selected = true;
+          selectedFound = true;
+        }
+        notInstalledGroup.appendChild(option);
+      });
+      selectElement.appendChild(notInstalledGroup);
+    }
+    
+    // If selected model is not in the list at all, add it as custom
+    if (selectedModel && !selectedFound) {
+      const customOption = document.createElement('option');
+      customOption.value = selectedModel;
+      // Mark as installed if it matches any installed model's base name
+      const customInstalled = installed.some(inst => inst.split(':')[0] === selectedBase);
+      customOption.dataset.installed = customInstalled ? 'true' : 'false';
+      customOption.textContent = `${selectedModel} (custom)`;
+      customOption.selected = true;
+      selectElement.insertBefore(customOption, selectElement.firstChild);
+    }
+    
+    // Update hint visibility
+    updateModelHint(selectElement, hintElement, modelNameElement);
+  });
+}
+
+function updateModelHint(selectElement, hintElement, modelNameElement) {
+  if (!hintElement || !selectElement) return;
+  
+  const selectedOption = selectElement.options[selectElement.selectedIndex];
+  const isInstalled = selectedOption?.dataset?.installed === 'true';
+  const modelName = selectElement.value;
+  
+  if (isInstalled || !modelName) {
+    hintElement.classList.add('hidden');
+  } else {
+    hintElement.classList.remove('hidden');
+    if (modelNameElement) {
+      modelNameElement.textContent = modelName;
+    }
   }
 }
 
@@ -249,9 +363,26 @@ if (document.getElementById("agentList")) {
   const createAgentForm = document.getElementById("createAgentForm");
   const closeModal = document.querySelector(".close");
 
+  // Initialize model dropdowns
+  const agentModelSelect = document.getElementById("agentModel");
+  const modelHint = document.getElementById("modelHint");
+  const modelToDownload = document.getElementById("modelToDownload");
+  
+  if (agentModelSelect) {
+    populateModelDropdown(agentModelSelect, 'deepseek-coder', modelHint, modelToDownload);
+    agentModelSelect.addEventListener("change", () => {
+      updateModelHint(agentModelSelect, modelHint, modelToDownload);
+    });
+  }
+
   if (createAgentBtn) {
     createAgentBtn.addEventListener("click", () => {
       createAgentModal.classList.remove("hidden");
+      // Refresh model dropdown when opening modal
+      if (agentModelSelect) {
+        cachedModels = null; // Clear cache to get fresh data
+        populateModelDropdown(agentModelSelect, 'deepseek-coder', modelHint, modelToDownload);
+      }
     });
   }
 
@@ -286,7 +417,7 @@ if (document.getElementById("agentList")) {
 
       const agentData = {
         name: formData.get("name"),
-        model: formData.get("model") || "llama3.2",
+        model: formData.get("model") || "deepseek-coder",
         system_prompt: formData.get("system_prompt") || "",
         settings: {
           temperature: parseFloat(formData.get("temperature") || 0.7),
@@ -294,8 +425,9 @@ if (document.getElementById("agentList")) {
         },
       };
 
-      // Only add tools if some are selected (otherwise defaults to all tools)
-      if (selectedTools.length > 0 && selectedTools.length < 3) {
+      // Only add tools if a subset is selected (otherwise defaults to all tools)
+      const totalTools = 5; // write_file, read_file, create_folder, list_directory, web_search
+      if (selectedTools.length > 0 && selectedTools.length < totalTools) {
         agentData.tools = selectedTools;
       }
 
@@ -307,7 +439,7 @@ if (document.getElementById("agentList")) {
         createAgentForm
           .querySelectorAll('input[name="tools"]')
           .forEach((cb) => (cb.checked = true));
-        renderAgents();
+        await renderAgents();
       } catch (error) {
         alert("Error creating agent: " + error.message);
       }
@@ -365,7 +497,7 @@ if (document.getElementById("agentList")) {
         await updateAgent(originalName, agentData);
         editAgentModal.classList.add("hidden");
         editAgentForm.reset();
-        renderAgents();
+        await renderAgents();
       } catch (error) {
         alert("Error updating agent: " + error.message);
       }
@@ -434,14 +566,24 @@ if (document.getElementById("agentList")) {
       // Populate the form
       originalNameInput.value = agent.name || "";
       nameInput.value = agent.name || "";
-      modelInput.value = agent.model || "";
       systemPromptInput.value = agent.system_prompt || "";
       temperatureInput.value = agent.settings?.temperature ?? 0.7;
       maxTokensInput.value = agent.settings?.max_tokens ?? 2048;
       
+      // Populate model dropdown
+      const editModelHint = document.getElementById("editModelHint");
+      const editModelToDownload = document.getElementById("editModelToDownload");
+      cachedModels = null; // Clear cache to get fresh data
+      populateModelDropdown(modelInput, agent.model || 'deepseek-coder', editModelHint, editModelToDownload);
+      
+      // Add change listener for model hint
+      modelInput.onchange = () => {
+        updateModelHint(modelInput, editModelHint, editModelToDownload);
+      };
+      
       console.log("[Edit Agent] Form populated:", {
         name: nameInput.value,
-        model: modelInput.value,
+        model: agent.model,
         systemPrompt: systemPromptInput.value.substring(0, 50),
         temperature: temperatureInput.value,
         maxTokens: maxTokensInput.value
@@ -451,17 +593,20 @@ if (document.getElementById("agentList")) {
       const allowedTools = agent.allowed_tools || [
         "write_file",
         "read_file",
+        "create_folder",
         "list_directory",
         "web_search",
       ];
       
       const writeFileCheckbox = document.getElementById("edit_tool_write_file");
       const readFileCheckbox = document.getElementById("edit_tool_read_file");
+      const createFolderCheckbox = document.getElementById("edit_tool_create_folder");
       const listDirCheckbox = document.getElementById("edit_tool_list_directory");
       const webSearchCheckbox = document.getElementById("edit_tool_web_search");
       
       if (writeFileCheckbox) writeFileCheckbox.checked = allowedTools.includes("write_file");
       if (readFileCheckbox) readFileCheckbox.checked = allowedTools.includes("read_file");
+      if (createFolderCheckbox) createFolderCheckbox.checked = allowedTools.includes("create_folder");
       if (listDirCheckbox) listDirCheckbox.checked = allowedTools.includes("list_directory");
       if (webSearchCheckbox) webSearchCheckbox.checked = allowedTools.includes("web_search");
       
@@ -495,7 +640,7 @@ if (document.getElementById("agentList")) {
 
     try {
       await deleteAgent(agentName);
-      renderAgents();
+      await renderAgents();
     } catch (error) {
       alert("Error deleting agent: " + error.message);
     }

@@ -494,6 +494,17 @@ class TestToolCallParsing(unittest.TestCase):
         self.assertEqual(results[0]['tool'], 'write_file')
         self.assertTrue(results[0]['result']['success'])
     
+    def test_parse_json_format_tool_call(self):
+        """Test parsing JSON-format tool call: <TOOL_CALL>{"tool": "name", "params": {...}}</TOOL_CALL>"""
+        test_path = os.path.join(self.temp_dir, 'json_format.txt')
+        response = f'Creating folder: <TOOL_CALL>{{"tool": "create_folder", "params": {{"path": "{test_path}"}}}}</TOOL_CALL>'
+        
+        modified, results = self.agent._parse_and_execute_tools(response)
+        
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]['tool'], 'create_folder')
+        self.assertTrue(results[0]['result']['success'])
+    
     def test_parse_multiple_tool_calls(self):
         """Test parsing multiple tool calls in one response."""
         file1 = os.path.join(self.temp_dir, 'file1.txt')
@@ -549,6 +560,133 @@ class TestToolCallParsing(unittest.TestCase):
         self.assertIn('Access denied', results[0]['result']['error'])
 
 
+class TestOllamaToolDefinitions(unittest.TestCase):
+    """Test the Ollama native tool definition generation."""
+    
+    def test_ollama_tools_generated_for_all_allowed(self):
+        """Test that Ollama tools are generated for all allowed tools."""
+        agent = EnhancedAgent(name="test", model="test", tools=None)
+        ollama_tools = agent._get_ollama_tools()
+        
+        self.assertEqual(len(ollama_tools), 5)  # All 5 tools
+        tool_names = [t['function']['name'] for t in ollama_tools]
+        self.assertIn('write_file', tool_names)
+        self.assertIn('read_file', tool_names)
+        self.assertIn('create_folder', tool_names)
+        self.assertIn('list_directory', tool_names)
+        self.assertIn('web_search', tool_names)
+    
+    def test_ollama_tools_filtered_by_allowed(self):
+        """Test that Ollama tools are filtered by allowed_tools."""
+        agent = EnhancedAgent(name="test", model="test", tools=['read_file', 'create_folder'])
+        ollama_tools = agent._get_ollama_tools()
+        
+        self.assertEqual(len(ollama_tools), 2)
+        tool_names = [t['function']['name'] for t in ollama_tools]
+        self.assertIn('read_file', tool_names)
+        self.assertIn('create_folder', tool_names)
+        self.assertNotIn('write_file', tool_names)
+    
+    def test_ollama_tool_format(self):
+        """Test that Ollama tool definitions have correct format."""
+        agent = EnhancedAgent(name="test", model="test", tools=['create_folder'])
+        ollama_tools = agent._get_ollama_tools()
+        
+        self.assertEqual(len(ollama_tools), 1)
+        tool = ollama_tools[0]
+        
+        self.assertEqual(tool['type'], 'function')
+        self.assertIn('function', tool)
+        self.assertEqual(tool['function']['name'], 'create_folder')
+        self.assertIn('description', tool['function'])
+        self.assertIn('parameters', tool['function'])
+        self.assertEqual(tool['function']['parameters']['type'], 'object')
+        self.assertIn('properties', tool['function']['parameters'])
+        self.assertIn('required', tool['function']['parameters'])
+    
+    def test_ollama_tools_empty_when_no_tools(self):
+        """Test that empty tools list returns empty Ollama tools."""
+        agent = EnhancedAgent(name="test", model="test", tools=[])
+        ollama_tools = agent._get_ollama_tools()
+        
+        self.assertEqual(len(ollama_tools), 0)
+
+
+class TestExecuteToolCall(unittest.TestCase):
+    """Test the _execute_tool_call method for native tool calling."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.agent = EnhancedAgent(name="test", model="test", tools=None)
+        self.temp_dir = tempfile.mkdtemp()
+    
+    def tearDown(self):
+        """Clean up test fixtures."""
+        shutil.rmtree(self.temp_dir)
+    
+    def test_execute_create_folder(self):
+        """Test executing create_folder via _execute_tool_call."""
+        test_path = os.path.join(self.temp_dir, 'test_folder')
+        
+        result = self.agent._execute_tool_call('create_folder', {'path': test_path})
+        
+        self.assertTrue(result['success'])
+        self.assertTrue(os.path.isdir(test_path))
+    
+    def test_execute_write_file(self):
+        """Test executing write_file via _execute_tool_call."""
+        test_path = os.path.join(self.temp_dir, 'test_file.txt')
+        
+        result = self.agent._execute_tool_call('write_file', {
+            'path': test_path,
+            'content': 'Test content'
+        })
+        
+        self.assertTrue(result['success'])
+        self.assertTrue(os.path.exists(test_path))
+        with open(test_path, 'r') as f:
+            self.assertEqual(f.read(), 'Test content')
+    
+    def test_execute_read_file(self):
+        """Test executing read_file via _execute_tool_call."""
+        test_path = os.path.join(self.temp_dir, 'read_test.txt')
+        with open(test_path, 'w') as f:
+            f.write('Read me')
+        
+        result = self.agent._execute_tool_call('read_file', {'path': test_path})
+        
+        self.assertTrue(result['success'])
+        self.assertEqual(result['content'], 'Read me')
+    
+    def test_execute_list_directory(self):
+        """Test executing list_directory via _execute_tool_call."""
+        # Create a file in temp dir
+        test_file = os.path.join(self.temp_dir, 'listed.txt')
+        with open(test_file, 'w') as f:
+            f.write('content')
+        
+        result = self.agent._execute_tool_call('list_directory', {'path': self.temp_dir})
+        
+        self.assertTrue(result['success'])
+        names = [item['name'] for item in result['items']]
+        self.assertIn('listed.txt', names)
+    
+    def test_execute_denied_tool(self):
+        """Test executing a tool that's not allowed."""
+        agent = EnhancedAgent(name="test", model="test", tools=['read_file'])
+        
+        result = agent._execute_tool_call('write_file', {'path': 'test.txt', 'content': 'denied'})
+        
+        self.assertFalse(result['success'])
+        self.assertIn('Access denied', result['error'])
+    
+    def test_execute_unknown_tool(self):
+        """Test executing an unknown tool."""
+        result = self.agent._execute_tool_call('unknown_tool', {'param': 'value'})
+        
+        self.assertFalse(result['success'])
+
+
 class TestAgentInfo(unittest.TestCase):
     """Test the get_info method includes tool information."""
     
@@ -576,7 +714,7 @@ class TestAgentInfo(unittest.TestCase):
         
         info = agent.get_info()
         
-        expected_fields = {'name', 'model', 'system_prompt', 'conversation_length', 'settings', 'allowed_tools'}
+        expected_fields = {'name', 'model', 'system_prompt', 'conversation_length', 'settings', 'allowed_tools', 'avatar_seed', 'session_id'}
         self.assertEqual(set(info.keys()), expected_fields)
 
 
@@ -787,6 +925,8 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestWebSearch))
     suite.addTests(loader.loadTestsFromTestCase(TestWebSearchMocked))
     suite.addTests(loader.loadTestsFromTestCase(TestToolCallParsing))
+    suite.addTests(loader.loadTestsFromTestCase(TestOllamaToolDefinitions))
+    suite.addTests(loader.loadTestsFromTestCase(TestExecuteToolCall))
     suite.addTests(loader.loadTestsFromTestCase(TestAgentInfo))
     suite.addTests(loader.loadTestsFromTestCase(TestIntegrationRealWrite))
     

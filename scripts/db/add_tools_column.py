@@ -47,7 +47,7 @@ def add_tools_column(db_path: str = "data/agent.db"):
         ''')
         
         # Set default tools for existing agents (all tools enabled)
-        default_tools = json.dumps(['write_file', 'read_file', 'list_directory'])
+        default_tools = json.dumps(['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search'])
         print("[*] Setting default tools for existing agents...")
         cursor.execute('''
             UPDATE agents 

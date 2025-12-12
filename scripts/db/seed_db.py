@@ -121,7 +121,7 @@ IMPORTANT: Keep responses concise. Create actionable documents that empower the 
                     'max_tokens': 4096,
                     'api_endpoint': 'http://localhost:11434'
                 },
-                'tools': ['write_file', 'read_file', 'list_directory', 'web_search']
+                'tools': ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
             },
             {
                 'name': 'Designer',
@@ -195,58 +195,43 @@ IMPORTANT: Keep responses concise. Create clear, implementable design specs.''',
                     'max_tokens': 4096,
                     'api_endpoint': 'http://localhost:11434'
                 },
-                'tools': ['write_file', 'read_file', 'list_directory', 'web_search']
+                'tools': ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
             },
             {
                 'name': 'Coder',
                 'model': 'llama3.2',
-                'system_prompt': '''You are a senior full stack engineer with expertise in building production-quality software.
+                'system_prompt': '''You are a senior full stack engineer. You EXECUTE file operations, not just describe them.
 
-YOUR ROLE:
-- Implement features based on PRDs and design specs
-- Write clean, well-documented, production-ready code
-- Follow security best practices recommended by Security Engineer
-- Address bugs and issues identified by Tester
-- Refactor based on team feedback
+CRITICAL: To create files, you MUST use this EXACT format:
+<TOOL_CALL tool="write_file">{"path": "folder/file.py", "content": "your code with \\n for newlines and \\" for quotes"}</TOOL_CALL>
 
-YOU ARE THE ONLY AGENT WHO WRITES CODE FILES.
+To create folders:
+<TOOL_CALL tool="create_folder">{"path": "folder_name"}</TOOL_CALL>
 
-OUTPUT FORMAT - Use write_file to create code:
-- Source files: "<feature>/main.py", "<feature>/utils.py", etc.
-- Organize code in logical directories
+RULES FOR write_file:
+1. JSON must be valid - use \\n for newlines, \\" for quotes inside content
+2. Always include file extension (.py, .js, .html, etc.)
+3. Put actual code in content, not descriptions
+
+EXAMPLE - Creating a Python file:
+<TOOL_CALL tool="write_file">{"path": "game/main.py", "content": "#!/usr/bin/env python3\\n\\nclass Game:\\n    def __init__(self):\\n        self.score = 0\\n\\n    def play(self):\\n        print(\\"Playing!\\")\\n\\nif __name__ == \\"__main__\\":\\n    game = Game()\\n    game.play()"}</TOOL_CALL>
+
+DO NOT:
+- Just show code in markdown blocks (that doesn't create files)
+- Say "[Executed: ...]" without using TOOL_CALL tags
+- Forget to escape quotes and newlines in JSON
 
 WORKFLOW:
-1. Read the PRD from Product Manager (docs/prd_*.md)
-2. Read the design spec from Designer (docs/design_*.md)
-3. Implement the feature with proper structure
-4. Address feedback from Tester and Security Engineer
-5. Update code based on team input
-
-CODE STANDARDS:
-- Well-structured and organized
-- Properly commented and documented
-- Follows language-specific conventions
-- Includes error handling
-- Implements input validation (per Security recommendations)
-- Testable design
-
-COLLABORATION:
-- Ask PM for clarification on requirements
-- Follow Designer's specifications
-- Fix issues reported by Tester
-- Implement security fixes recommended by Security Engineer
-- Be open to feedback and iterate
-
-When writing code, use TOOL_CALL format:
-<TOOL_CALL tool="write_file">{"path": "feature/main.py", "content": "# Your code here"}</TOOL_CALL>
-
-IMPORTANT: Keep responses concise. Focus on implementing working code.''',
+1. Read PRDs and design specs if available
+2. Create folder structure with create_folder
+3. Write code files with write_file
+4. Keep responses brief - focus on executing tools''',
                 'settings': {
                     'temperature': 0.7,
                     'max_tokens': 4096,
                     'api_endpoint': 'http://localhost:11434'
                 },
-                'tools': ['write_file', 'read_file', 'list_directory', 'web_search']
+                'tools': ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
             },
             {
                 'name': 'Tester',
@@ -317,7 +302,7 @@ IMPORTANT: Be specific in bug reports. Validate against actual requirements.''',
                     'max_tokens': 4096,
                     'api_endpoint': 'http://localhost:11434'
                 },
-                'tools': ['write_file', 'read_file', 'list_directory', 'web_search']
+                'tools': ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
             },
             {
                 'name': 'Security Engineer',
@@ -405,7 +390,7 @@ IMPORTANT: Provide actionable recommendations, not just warnings.''',
                     'max_tokens': 4096,
                     'api_endpoint': 'http://localhost:11434'
                 },
-                'tools': ['write_file', 'read_file', 'list_directory', 'web_search']
+                'tools': ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search']
             }
         ]
         
@@ -423,7 +408,7 @@ IMPORTANT: Provide actionable recommendations, not just warnings.''',
                 continue
             
             # Get tools (default to all tools if not specified)
-            tools = agent.get('tools', ['write_file', 'read_file', 'list_directory', 'web_search'])
+            tools = agent.get('tools', ['write_file', 'read_file', 'create_folder', 'list_directory', 'web_search'])
             
             # Insert or update agent
             if exists and overwrite:
