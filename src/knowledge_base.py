@@ -170,7 +170,8 @@ class KnowledgeBase:
                 content TEXT NOT NULL,
                 metadata TEXT,
                 related_agent TEXT,
-                embedding TEXT
+                embedding TEXT,
+                session_id TEXT
             )
         ''')
         
@@ -181,6 +182,14 @@ class KnowledgeBase:
             # Column doesn't exist, add it
             cursor.execute("ALTER TABLE knowledge_base ADD COLUMN embedding TEXT")
             print("[KnowledgeBase] Added embedding column to existing table")
+        
+        # Migrate existing tables - add session_id column if it doesn't exist
+        try:
+            cursor.execute("SELECT session_id FROM knowledge_base LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE knowledge_base ADD COLUMN session_id TEXT")
+            print("[KnowledgeBase] Added session_id column to existing table")
         
         # Agents table for storing agent configurations
         cursor.execute('''
@@ -257,6 +266,11 @@ class KnowledgeBase:
             ON conversation_sessions(status)
         ''')
         
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_session_id 
+            ON knowledge_base(session_id)
+        ''')
+        
         conn.commit()
         conn.close()
     
@@ -266,9 +280,22 @@ class KnowledgeBase:
         interaction_type: str,
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
-        related_agent: Optional[str] = None
+        related_agent: Optional[str] = None,
+        session_id: Optional[str] = None
     ) -> int:
-        """Add an interaction to the knowledge base with embedding."""
+        """Add an interaction to the knowledge base with embedding.
+        
+        Args:
+            agent_name: Name of the agent
+            interaction_type: Type of interaction
+            content: Content of the interaction
+            metadata: Optional metadata dict
+            related_agent: Name of related agent if any
+            session_id: Optional session ID to scope knowledge to a specific session
+        
+        Returns:
+            ID of the created interaction
+        """
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
         
@@ -281,9 +308,9 @@ class KnowledgeBase:
         
         cursor.execute('''
             INSERT INTO knowledge_base 
-            (timestamp, agent_name, interaction_type, content, metadata, related_agent, embedding)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (timestamp, agent_name, interaction_type, content, metadata_json, related_agent, embedding_json))
+            (timestamp, agent_name, interaction_type, content, metadata, related_agent, embedding, session_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (timestamp, agent_name, interaction_type, content, metadata_json, related_agent, embedding_json, session_id))
         
         interaction_id = cursor.lastrowid
         conn.commit()
@@ -296,10 +323,23 @@ class KnowledgeBase:
         agent_name: Optional[str] = None,
         interaction_type: Optional[str] = None,
         related_agent: Optional[str] = None,
+        session_id: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0
     ) -> List[Dict[str, Any]]:
-        """Query interactions from the knowledge base."""
+        """Query interactions from the knowledge base.
+        
+        Args:
+            agent_name: Filter by agent name
+            interaction_type: Filter by interaction type
+            related_agent: Filter by related agent
+            session_id: Filter by session ID (for session-scoped knowledge)
+            limit: Maximum number of results
+            offset: Offset for pagination
+        
+        Returns:
+            List of interaction dictionaries
+        """
         conn = sqlite3.connect(self.db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -319,6 +359,10 @@ class KnowledgeBase:
             query += " AND related_agent = ?"
             params.append(related_agent)
         
+        if session_id:
+            query += " AND session_id = ?"
+            params.append(session_id)
+        
         query += " ORDER BY timestamp DESC"
         
         if limit:
@@ -337,7 +381,8 @@ class KnowledgeBase:
                 'interaction_type': row['interaction_type'],
                 'content': row['content'],
                 'metadata': json.loads(row['metadata']) if row['metadata'] else None,
-                'related_agent': row['related_agent']
+                'related_agent': row['related_agent'],
+                'session_id': row['session_id'] if 'session_id' in row.keys() else None
             }
             interactions.append(interaction)
         
@@ -393,7 +438,8 @@ class KnowledgeBase:
         agent_name: Optional[str] = None,
         top_k: int = 10,
         time_decay_factor: float = 0.95,
-        interaction_type: Optional[str] = None
+        interaction_type: Optional[str] = None,
+        session_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Search interactions using semantic similarity with time-weighting.
         
@@ -403,6 +449,7 @@ class KnowledgeBase:
             top_k: Number of top results to return
             time_decay_factor: Factor for time decay (0-1, higher = less decay)
             interaction_type: Filter by interaction type (optional)
+            session_id: Filter by session ID for session-scoped knowledge (optional)
             
         Returns:
             List of interactions sorted by relevance score (highest first)
@@ -414,6 +461,7 @@ class KnowledgeBase:
             return self.get_interactions(
                 agent_name=agent_name,
                 interaction_type=interaction_type,
+                session_id=session_id,
                 limit=top_k
             )
         
@@ -432,6 +480,10 @@ class KnowledgeBase:
         if interaction_type:
             query_sql += " AND interaction_type = ?"
             params.append(interaction_type)
+        
+        if session_id:
+            query_sql += " AND session_id = ?"
+            params.append(session_id)
         
         query_sql += " ORDER BY timestamp DESC"
         

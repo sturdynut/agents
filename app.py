@@ -389,6 +389,9 @@ def send_chat_message(agent_name):
             app.logger.error(f"[API] Agent instance not found for '{agent_name}'")
             return jsonify({'error': 'Agent instance not found'}), 500
         
+        # Clear session_id for single agent chat to avoid context from multi-agent sessions
+        agent.set_session_id(None)
+        
         app.logger.info(f"[API] Agent '{agent_name}' tools: {agent.allowed_tools}")
         
         try:
@@ -432,6 +435,10 @@ def execute_task(agent_name):
     app.logger.info(f"[API] Agent '{agent_name}' executing task: '{task[:100]}...'")
     
     agent = agent_manager.get_agent(agent_name)
+    
+    # Clear session_id for single agent task execution to avoid context from multi-agent sessions
+    agent.set_session_id(None)
+    
     app.logger.info(f"[API] Agent '{agent_name}' tools for task: {agent.allowed_tools}")
     
     result = agent.execute_task(task)
@@ -970,6 +977,10 @@ def handle_chat_message(data):
         return
     
     agent = agent_manager.get_agent(agent_name)
+    
+    # Clear session_id for single agent chat to avoid context from multi-agent sessions
+    agent.set_session_id(None)
+    
     response = agent.chat(message)
     
     emit('chat_response', {

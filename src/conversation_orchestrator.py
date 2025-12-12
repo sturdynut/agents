@@ -54,12 +54,22 @@ class ConversationOrchestrator:
     
     def _select_initial_agent(self, objective: str, available_agents: List[str]) -> str:
         """Select the best agent to start the conversation based on the objective."""
-        agent_descriptions = self._get_agent_descriptions()
+        # Build agent descriptions in the user's preferred order
+        all_agents_info = {agent['name']: agent for agent in self.agent_manager.list_agents()}
+        agent_descriptions = []
+        for agent_name in available_agents:
+            if agent_name in all_agents_info:
+                agent = all_agents_info[agent_name]
+                desc = f"- {agent['name']}: {agent.get('system_prompt', 'No description')[:200]}"
+                if agent.get('model'):
+                    desc += f" (Model: {agent['model']})"
+                agent_descriptions.append(desc)
+        agent_descriptions_str = "\n".join(agent_descriptions)
         
         prompt = f"""Select the best agent to start this objective.
 
-Available agents:
-{agent_descriptions}
+Available agents (in user's preferred order):
+{agent_descriptions_str}
 
 Objective: {objective}
 
@@ -216,14 +226,22 @@ Respond with agent name, "{current_agent}" to continue, or "END"."""
             if not conversation_id:
                 conversation_id = f"conv_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
             
-            # Select initial agent
-            current_agent_name = self._select_initial_agent(objective, agent_names)
-            if not current_agent_name:
-                raise ValueError("Could not select initial agent")
+            # Select initial agent based on conversation mode
+            if conversation_mode == 'round_robin':
+                # For round-robin, always start with the first agent in the user's ordered list
+                current_agent_name = agent_names[0]
+                print(f"[Orchestrator] Round-robin mode: starting with first agent in order: {current_agent_name}")
+            else:
+                # For intelligent mode, let the LLM pick the best starting agent
+                current_agent_name = self._select_initial_agent(objective, agent_names)
+                if not current_agent_name:
+                    # Fallback to first agent if LLM selection fails
+                    current_agent_name = agent_names[0]
             
             conversation_history = []
             print(f"[Orchestrator] Starting conversation '{conversation_id}' with objective: {objective}")
-            print(f"[Orchestrator] Selected initial agent: {current_agent_name}")
+            print(f"[Orchestrator] Agent order: {', '.join(agent_names)}")
+            print(f"[Orchestrator] Initial agent: {current_agent_name}")
         
         # Initialize conversation state
         conversation_state = {
@@ -239,12 +257,16 @@ Respond with agent name, "{current_agent}" to continue, or "END"."""
         
         self.active_conversations[conversation_id] = conversation_state
         
-        # Get agent instances
+        # Get agent instances and set session_id for scoped knowledge
         agents = {}
         for agent_name in agent_names:
             agent = self.agent_manager.get_agent(agent_name)
             if agent:
+                # Set session_id on agent to scope knowledge to this conversation
+                agent.set_session_id(conversation_id)
                 agents[agent_name] = agent
+        
+        print(f"[Orchestrator] All agents scoped to session: {conversation_id}")
         
         conversation_log = []
         
@@ -275,10 +297,17 @@ Respond with agent name, "{current_agent}" to continue, or "END"."""
                 
                 # Build prompt for current agent
                 if turn == 1:
-                    # First turn
+                    # First turn - emphasize ACTION
                     prompt = f"""Objective: {objective}
 
-Begin working toward this objective. Be specific and actionable."""
+Begin working toward this objective. 
+
+IMPORTANT: Don't just discuss or plan - take ACTION using your tools.
+- If you need to write code, use the write_file tool to ACTUALLY create the file
+- If you need to check existing files, use read_file or list_directory
+- Show your work by executing tools, not just describing what you would do
+
+Start now - what's your first concrete action?"""
                 else:
                     # Subsequent turns - include conversation context
                     context_summary = "\n\nRecent conversation:\n"
@@ -287,7 +316,14 @@ Begin working toward this objective. Be specific and actionable."""
                     
                     prompt = f"""Objective: {objective}{context_summary}
 
-Contribute concisely toward this objective. Build on what's been discussed."""
+Continue making CONCRETE PROGRESS toward this objective.
+
+IMPORTANT: Don't just discuss - take ACTION:
+- Use write_file to create or update code files
+- Build on what others have done
+- If someone proposed code, implement it by writing the actual file
+
+What's your next concrete action?"""
                 
                 # Get response from current agent
                 try:
@@ -308,7 +344,7 @@ Contribute concisely toward this objective. Build on what's been discussed."""
                     conversation_log.append(message_entry)
                     conversation_state['history'].append(message_entry)
                     
-                    # Store in knowledge base
+                    # Store in knowledge base (scoped to session)
                     self.knowledge_base.add_interaction(
                         agent_name=current_agent_name,
                         interaction_type='agent_chat',
@@ -318,7 +354,8 @@ Contribute concisely toward this objective. Build on what's been discussed."""
                             'objective': objective,
                             'turn': turn,
                             'orchestrated': True
-                        }
+                        },
+                        session_id=conversation_id  # Scope knowledge to this session
                     )
                     
                     # Select next agent based on conversation mode

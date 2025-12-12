@@ -349,7 +349,8 @@ class EnhancedAgent:
         knowledge_base=None,
         message_bus=None,
         tools: Optional[List[str]] = None,
-        avatar_seed: Optional[str] = None
+        avatar_seed: Optional[str] = None,
+        session_id: Optional[str] = None
     ):
         """Initialize enhanced agent.
         
@@ -362,6 +363,7 @@ class EnhancedAgent:
             message_bus: Message bus instance
             tools: List of allowed tool names. If None, all tools are allowed.
             avatar_seed: Custom seed for avatar generation. If None, uses agent name.
+            session_id: Session ID for scoping knowledge to a specific conversation session.
         """
         self.name = name
         self.model = model
@@ -370,6 +372,7 @@ class EnhancedAgent:
         self.knowledge_base = knowledge_base
         self.message_bus = message_bus
         self.avatar_seed = avatar_seed or name  # Default to agent name
+        self.session_id = session_id  # Session scoping for knowledge
         
         # Set allowed tools (if None, allow all tools)
         if tools is None:
@@ -399,6 +402,15 @@ class EnhancedAgent:
         # Pending messages from other agents
         self.pending_messages: List[Dict[str, str]] = []
     
+    def set_session_id(self, session_id: str):
+        """Set the session ID for scoping knowledge.
+        
+        Args:
+            session_id: The session ID to scope knowledge to
+        """
+        self.session_id = session_id
+        logger.info(f"[Agent {self.name}] Session ID set to: {session_id}")
+    
     def receive_message(self, sender_name: str, message_content: str):
         """Receive a message from another agent."""
         self.pending_messages.append({
@@ -416,23 +428,48 @@ class EnhancedAgent:
         if not self.allowed_tools:
             return "Note: No tools are available for this agent."
         
-        tools_lines = ["Available Tools (use when needed):"]
+        tools_lines = ["=== TOOLS ==="]
+        tools_lines.append("To EXECUTE an action, you MUST use the exact TOOL_CALL format below.")
+        tools_lines.append("Just showing code in your response does NOT execute it - you MUST wrap it in TOOL_CALL tags.")
+        tools_lines.append("")
         
         if 'write_file' in self.allowed_tools:
-            tools_lines.append('- write_file: <TOOL_CALL tool="write_file">{"path": "filename.ext", "content": "file content"}</TOOL_CALL>')
+            tools_lines.append('WRITE FILE (creates or overwrites a file):')
+            tools_lines.append('<TOOL_CALL tool="write_file">{"path": "filename.py", "content": "YOUR ACTUAL CODE HERE"}</TOOL_CALL>')
+            tools_lines.append('')
         
         if 'read_file' in self.allowed_tools:
-            tools_lines.append('- read_file: <TOOL_CALL tool="read_file">{"path": "agent_code/filename.ext"}</TOOL_CALL>')
+            tools_lines.append('READ FILE:')
+            tools_lines.append('<TOOL_CALL tool="read_file">{"path": "filename.py"}</TOOL_CALL>')
+            tools_lines.append('')
         
         if 'list_directory' in self.allowed_tools:
-            tools_lines.append('- list_directory: <TOOL_CALL tool="list_directory">{"path": "agent_code"}</TOOL_CALL>')
+            tools_lines.append('LIST DIRECTORY:')
+            tools_lines.append('<TOOL_CALL tool="list_directory">{"path": "."}</TOOL_CALL>')
+            tools_lines.append('')
         
         if 'web_search' in self.allowed_tools:
-            tools_lines.append('- web_search: <TOOL_CALL tool="web_search">{"query": "search terms", "max_results": 5}</TOOL_CALL>')
+            tools_lines.append('WEB SEARCH:')
+            tools_lines.append('<TOOL_CALL tool="web_search">{"query": "search terms", "max_results": 5}</TOOL_CALL>')
+            tools_lines.append('')
         
-        if 'write_file' in self.allowed_tools:
-            tools_lines.append("\nIMPORTANT: When writing files, just use the filename (e.g., \"script.py\"). The system will automatically save it to the agent_code folder.")
-            tools_lines.append("If you need to organize files in subdirectories, use paths like \"utils/helper.py\" and they will be created in agent_code/utils/.")
+        tools_lines.append("CRITICAL RULES:")
+        tools_lines.append("1. The content field must contain the COMPLETE, ACTUAL code - NOT placeholders like '...' or 'code here'")
+        tools_lines.append("2. JSON ESCAPING IS REQUIRED:")
+        tools_lines.append("   - Newlines: use \\n (not actual newlines)")
+        tools_lines.append("   - Double quotes: use \\\" (EVERY quote inside content must be escaped)")
+        tools_lines.append("   - Backslashes: use \\\\ (double them)")
+        tools_lines.append("3. Always close with </TOOL_CALL>")
+        tools_lines.append("4. Files are saved to agent_code/ folder automatically")
+        tools_lines.append("5. Use file extensions (.py, .js, etc) - do NOT create files without extensions")
+        tools_lines.append("")
+        tools_lines.append("EXAMPLE - Writing a Python file with proper escaping:")
+        tools_lines.append('<TOOL_CALL tool="write_file">{"path": "game.py", "content": "class Game:\\n    def __init__(self):\\n        self.score = 0\\n\\n    def play(self):\\n        print(\\"Playing!\\")\\n\\nif __name__ == \\"__main__\\":\\n    game = Game()\\n    game.play()"}</TOOL_CALL>')
+        tools_lines.append("")
+        tools_lines.append("WRONG (causes errors):")
+        tools_lines.append('  {"content": "if __name__ == "__main__":"}  <- Unescaped quotes!')
+        tools_lines.append("CORRECT:")
+        tools_lines.append('  {"content": "if __name__ == \\"__main__\\":"}  <- Quotes escaped with \\"')
         
         return "\n".join(tools_lines)
     
@@ -458,13 +495,15 @@ class EnhancedAgent:
                 logger.warning(f"[Agent {self.name}] Error loading agent context: {e}")
         
         # Add semantically relevant interactions if query provided
+        # Filter by session_id if set to scope knowledge to current session
         if self.knowledge_base and query:
             try:
                 relevant_interactions = self.knowledge_base.semantic_search_interactions(
                     query=query,
                     agent_name=self.name,
                     top_k=10,
-                    time_decay_factor=0.95
+                    time_decay_factor=0.95,
+                    session_id=self.session_id  # Scope to current session
                 )
                 
                 if relevant_interactions:
@@ -482,10 +521,20 @@ class EnhancedAgent:
                     context_parts.append(f"Relevant Previous Interactions:\n" + "\n".join(interactions_text))
             except Exception as e:
                 print(f"[Agent {self.name}] Error in semantic search, falling back: {e}")
-                # Fallback to recent interactions
-                agent_knowledge = self.knowledge_base.get_agent_knowledge_summary(agent_name=self.name, limit=10)
-                if agent_knowledge:
-                    context_parts.append(f"Recent Interactions:\n{agent_knowledge}")
+                # Fallback to recent interactions (still scoped to session)
+                recent_interactions = self.knowledge_base.get_interactions(
+                    agent_name=self.name,
+                    session_id=self.session_id,
+                    limit=10
+                )
+                if recent_interactions:
+                    interactions_text = []
+                    for interaction in recent_interactions:
+                        timestamp = interaction['timestamp']
+                        interaction_type = interaction['interaction_type']
+                        content = interaction['content'][:200]
+                        interactions_text.append(f"[{timestamp}] {interaction_type}: {content}")
+                    context_parts.append(f"Recent Interactions:\n" + "\n".join(interactions_text))
         
         # Add pending messages
         if self.pending_messages:
@@ -571,7 +620,8 @@ class EnhancedAgent:
                     agent_name=self.name,
                     interaction_type='user_chat',
                     content=f"User: {user_message}\nAgent: {modified_response}",
-                    metadata={'user_message': user_message, 'agent_response': modified_response, 'tools_used': len(tool_results) > 0}
+                    metadata={'user_message': user_message, 'agent_response': modified_response, 'tools_used': len(tool_results) > 0},
+                    session_id=self.session_id
                 )
             
             return modified_response
@@ -582,9 +632,166 @@ class EnhancedAgent:
                     agent_name=self.name,
                     interaction_type='user_chat',
                     content=f"User: {user_message}\nError: {error_msg}",
-                    metadata={'error': str(e)}
+                    metadata={'error': str(e)},
+                    session_id=self.session_id
                 )
             return error_msg
+    
+    def _repair_json_string(self, json_str: str) -> str:
+        """Attempt to repair common JSON errors from LLM output.
+        
+        Common issues:
+        - Unescaped quotes inside string values
+        - Unescaped newlines
+        - Missing escapes for backslashes
+        
+        Args:
+            json_str: Potentially malformed JSON string
+            
+        Returns:
+            Repaired JSON string
+        """
+        import re
+        
+        # First, try to parse as-is
+        try:
+            json.loads(json_str)
+            return json_str  # Already valid
+        except json.JSONDecodeError:
+            pass
+        
+        # Strategy: Find the "content" field and properly escape its value
+        # Pattern to find content field with value
+        content_pattern = r'"content"\s*:\s*"'
+        content_match = re.search(content_pattern, json_str)
+        
+        if not content_match:
+            return json_str  # Can't find content field, return as-is
+        
+        # Find where the content value starts
+        content_start = content_match.end()
+        
+        # Find the end of the content value by looking for unescaped quote followed by } or ,
+        # This is tricky because we need to handle nested quotes
+        
+        # Count backwards from the end to find the closing pattern
+        # Look for "} or ", at the end
+        json_str_stripped = json_str.rstrip()
+        
+        if json_str_stripped.endswith('"}'):
+            # Find the last "} pattern
+            content_end = json_str_stripped.rfind('"}')
+        elif json_str_stripped.endswith('"}}}'):
+            # Handle extra braces from malformed closing
+            content_end = json_str_stripped.rfind('"}')
+        elif json_str_stripped.endswith('"}}'):
+            # Handle single extra brace from malformed closing
+            content_end = json_str_stripped.rfind('"}')
+        else:
+            return json_str  # Can't determine end
+        
+        if content_end <= content_start:
+            return json_str
+        
+        # Extract the content value
+        content_value = json_str[content_start:content_end]
+        
+        # Escape unescaped quotes within the content
+        # But don't double-escape already escaped quotes
+        repaired_content = ""
+        i = 0
+        while i < len(content_value):
+            char = content_value[i]
+            if char == '\\' and i + 1 < len(content_value):
+                # Already escaped sequence, keep as-is
+                repaired_content += char + content_value[i + 1]
+                i += 2
+            elif char == '"':
+                # Unescaped quote - escape it
+                repaired_content += '\\"'
+                i += 1
+            elif char == '\n':
+                # Literal newline - escape it
+                repaired_content += '\\n'
+                i += 1
+            elif char == '\r':
+                # Literal carriage return - escape it
+                repaired_content += '\\r'
+                i += 1
+            elif char == '\t':
+                # Literal tab - escape it
+                repaired_content += '\\t'
+                i += 1
+            else:
+                repaired_content += char
+                i += 1
+        
+        # Reconstruct JSON
+        repaired_json = json_str[:content_start] + repaired_content + json_str[content_end:]
+        
+        # Validate the repair
+        try:
+            json.loads(repaired_json)
+            logger.info(f"[Agent {self.name}] Successfully repaired JSON")
+            return repaired_json
+        except json.JSONDecodeError as e:
+            logger.warning(f"[Agent {self.name}] JSON repair failed: {e}")
+            # Try a more aggressive repair - escape ALL quotes in content
+            try:
+                aggressive_content = content_value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                aggressive_json = json_str[:content_start] + aggressive_content + json_str[content_end:]
+                json.loads(aggressive_json)
+                logger.info(f"[Agent {self.name}] Aggressive JSON repair succeeded")
+                return aggressive_json
+            except:
+                pass
+            
+            return json_str  # Return original if repair failed
+    
+    def _extract_balanced_json(self, text: str) -> Optional[str]:
+        """Extract a JSON object from text by counting balanced braces.
+        
+        Args:
+            text: Text that starts at or before a JSON object
+            
+        Returns:
+            The extracted JSON string, or None if not found
+        """
+        # Skip whitespace to find the opening brace
+        text = text.lstrip()
+        if not text.startswith('{'):
+            return None
+        
+        brace_count = 0
+        in_string = False
+        escape_next = False
+        json_end = -1
+        
+        for i, char in enumerate(text):
+            if escape_next:
+                escape_next = False
+                continue
+            
+            if char == '\\' and in_string:
+                escape_next = True
+                continue
+            
+            if char == '"' and not escape_next:
+                in_string = not in_string
+                continue
+            
+            if not in_string:
+                if char == '{':
+                    brace_count += 1
+                elif char == '}':
+                    brace_count -= 1
+                    if brace_count == 0:
+                        json_end = i + 1
+                        break
+        
+        if json_end > 0:
+            return text[:json_end]
+        return None
     
     def _parse_and_execute_tools(self, response: str) -> tuple[str, List[Dict[str, Any]]]:
         """Parse tool calls from agent response and execute them.
@@ -598,9 +805,27 @@ class EnhancedAgent:
         modified_response = response
         
         # Pattern to match tool calls: <TOOL_CALL tool="name">params</TOOL_CALL>
-        # Also handle common variations with extra braces
-        tool_pattern = r'<TOOL_CALL tool="([^"]+)">\s*(\{.*?\})\s*(?:</TOOL_CALL>|\}+)'
+        # Use a more robust approach that handles nested braces
+        tool_pattern = r'<TOOL_CALL tool="([^"]+)">\s*(\{[\s\S]*?\})\s*</TOOL_CALL>'
         matches = re.findall(tool_pattern, response, re.DOTALL)
+        
+        # If no matches, try alternative pattern for malformed closing tags
+        if not matches:
+            alt_pattern = r'<TOOL_CALL tool="([^"]+)">\s*(\{[\s\S]*?\})\s*(?:\}+|$)'
+            matches = re.findall(alt_pattern, response, re.DOTALL)
+        
+        # If still no matches but we see TOOL_CALL tags, try to extract JSON more carefully
+        if not matches and '<TOOL_CALL' in response:
+            # Find all TOOL_CALL occurrences and extract JSON with balanced braces
+            tool_start_pattern = r'<TOOL_CALL tool="([^"]+)">'
+            for match in re.finditer(tool_start_pattern, response):
+                tool_name = match.group(1)
+                start_pos = match.end()
+                
+                # Find the JSON object by counting braces
+                json_str = self._extract_balanced_json(response[start_pos:])
+                if json_str:
+                    matches.append((tool_name, json_str))
         
         logger.info(f"[Agent {self.name}] Parsing response for tool calls, found {len(matches)} tool call(s)")
         if matches:
@@ -611,8 +836,33 @@ class EnhancedAgent:
             logger.debug(f"[Agent {self.name}] Tool params (raw): {params_str}")
             
             try:
+                # Clean up the params string - remove trailing extra braces
+                cleaned_params = params_str.strip()
+                
+                # Use balanced brace extraction to get clean JSON
+                # This handles cases where LLM outputs extra } at the end
+                extracted_json = self._extract_balanced_json(cleaned_params)
+                if extracted_json:
+                    cleaned_params = extracted_json
+                    logger.debug(f"[Agent {self.name}] Extracted balanced JSON: {cleaned_params[:200]}...")
+                
+                # Try to repair JSON before parsing (handles LLM escaping errors)
+                repaired_params_str = self._repair_json_string(cleaned_params)
+                
+                # Final cleanup: strip any trailing extra braces that might remain
+                # This handles the common LLM error of outputting "}} instead of "}
+                while repaired_params_str.rstrip().endswith('}}'):
+                    # Try to parse as-is first
+                    try:
+                        json.loads(repaired_params_str)
+                        break  # Valid JSON, don't strip
+                    except json.JSONDecodeError:
+                        # Invalid, try removing trailing brace
+                        repaired_params_str = repaired_params_str.rstrip()[:-1]
+                        logger.debug(f"[Agent {self.name}] Stripped trailing brace, now: ...{repaired_params_str[-50:]}")
+                
                 # Parse parameters (expect JSON format)
-                params = json.loads(params_str.strip())
+                params = json.loads(repaired_params_str)
                 logger.info(f"[Agent {self.name}] Tool '{tool_name}' parsed params: {params}")
                 
                 # Check if tool is allowed
@@ -708,7 +958,11 @@ class EnhancedAgent:
 
 {tools_info}
 
-Be concise. State your approach, execute using available tools if needed, and summarize results. Note issues only if critical."""
+INSTRUCTIONS:
+1. Take CONCRETE ACTION using the tools above
+2. If this task involves writing code, use write_file to ACTUALLY create the file
+3. Don't just describe what you would do - DO IT using tool calls
+4. Summarize what you accomplished after executing tools"""
 
         max_iterations = 3  # Allow agent to use tools iteratively
         iteration = 0
@@ -766,7 +1020,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                         agent_name=self.name,
                         interaction_type='task_execution',
                         content=f"Task: {task}\nError: {error_msg}",
-                        metadata={'error': str(e)}
+                        metadata={'error': str(e)},
+                        session_id=self.session_id
                     )
                 return error_msg
         
@@ -786,7 +1041,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                 agent_name=self.name,
                 interaction_type='task_execution',
                 content=f"Task: {task}\nResult: {accumulated_response}",
-                metadata={'task': task, 'result': accumulated_response}
+                metadata={'task': task, 'result': accumulated_response},
+                session_id=self.session_id
             )
         
         return accumulated_response
@@ -821,7 +1077,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"Read file: {file_path}\nContent: {content[:500]}...",
-                    metadata={'operation': 'read', 'path': file_path}
+                    metadata={'operation': 'read', 'path': file_path},
+                    session_id=self.session_id
                 )
             
             return result
@@ -832,7 +1089,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"Read file: {file_path}\nError: {error_msg}",
-                    metadata={'error': str(e)}
+                    metadata={'error': str(e)},
+                    session_id=self.session_id
                 )
             return {'success': False, 'error': error_msg}
     
@@ -858,6 +1116,19 @@ Be concise. State your approach, execute using available tools if needed, and su
                     path = workspace_root / path
                     logger.debug(f"[Agent {self.name}] write_file: Path already has agent_code, new path={path}")
             
+            # Check for file/directory conflicts
+            if path.exists() and path.is_dir():
+                error_msg = f"Cannot write file: '{path}' already exists as a directory. Use a different filename or add a file extension (e.g., '{path}.py')"
+                logger.error(f"[Agent {self.name}] write_file: {error_msg}")
+                return {'success': False, 'error': error_msg}
+            
+            # Check if any parent path component is a file (not a directory)
+            for parent in path.parents:
+                if parent.exists() and parent.is_file():
+                    error_msg = f"Cannot create file: parent path '{parent}' is a file, not a directory. Remove the conflicting file or use a different path."
+                    logger.error(f"[Agent {self.name}] write_file: {error_msg}")
+                    return {'success': False, 'error': error_msg}
+            
             # Ensure parent directory exists
             logger.debug(f"[Agent {self.name}] write_file: Creating parent directory: {path.parent}")
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -882,7 +1153,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"Write file: {file_path}\nActual path: {path}\nContent length: {len(content)} bytes",
-                    metadata={'operation': 'write', 'path': file_path, 'actual_path': str(path), 'size': len(content)}
+                    metadata={'operation': 'write', 'path': file_path, 'actual_path': str(path), 'size': len(content)},
+                    session_id=self.session_id
                 )
             
             return result
@@ -894,7 +1166,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"Write file: {file_path}\nError: {error_msg}",
-                    metadata={'error': str(e)}
+                    metadata={'error': str(e)},
+                    session_id=self.session_id
                 )
             return {'success': False, 'error': error_msg}
     
@@ -930,7 +1203,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"List directory: {dir_path}\nItems: {len(items)}",
-                    metadata={'operation': 'list', 'path': dir_path, 'count': len(items)}
+                    metadata={'operation': 'list', 'path': dir_path, 'count': len(items)},
+                    session_id=self.session_id
                 )
             
             return result
@@ -941,7 +1215,8 @@ Be concise. State your approach, execute using available tools if needed, and su
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"List directory: {dir_path}\nError: {error_msg}",
-                    metadata={'error': str(e)}
+                    metadata={'error': str(e)},
+                    session_id=self.session_id
                 )
             return {'success': False, 'error': error_msg}
     
@@ -955,6 +1230,9 @@ Be concise. State your approach, execute using available tools if needed, and su
         Returns:
             Dict with success status and search results
         """
+        import time
+        import random
+        
         logger.info(f"[Agent {self.name}] web_search called with query='{query}', max_results={max_results}")
         
         if not query or not query.strip():
@@ -962,53 +1240,106 @@ Be concise. State your approach, execute using available tools if needed, and su
         
         try:
             from duckduckgo_search import DDGS
-            
-            results = []
-            with DDGS() as ddgs:
-                search_results = list(ddgs.text(query, max_results=max_results))
-                
-                for item in search_results:
-                    results.append({
-                        'title': item.get('title', ''),
-                        'url': item.get('href', ''),
-                        'snippet': item.get('body', '')
-                    })
-            
-            logger.info(f"[Agent {self.name}] web_search: Found {len(results)} results for '{query}'")
-            
-            result = {
-                'success': True,
-                'query': query,
-                'results': results,
-                'count': len(results)
-            }
-            
-            # Store in knowledge base
-            if self.knowledge_base:
-                self.knowledge_base.add_interaction(
-                    agent_name=self.name,
-                    interaction_type='web_search',
-                    content=f"Web search: {query}\nResults: {len(results)} found",
-                    metadata={'query': query, 'result_count': len(results)}
-                )
-            
-            return result
-            
+            from duckduckgo_search.exceptions import RatelimitException
         except ImportError:
             error_msg = "DuckDuckGo search package not installed. Install with: pip install duckduckgo-search"
             logger.error(f"[Agent {self.name}] web_search: {error_msg}")
             return {'success': False, 'error': error_msg}
-        except Exception as e:
-            error_msg = f"Error performing web search: {str(e)}"
-            logger.exception(f"[Agent {self.name}] web_search EXCEPTION: {error_msg}")
-            if self.knowledge_base:
-                self.knowledge_base.add_interaction(
-                    agent_name=self.name,
-                    interaction_type='web_search',
-                    content=f"Web search: {query}\nError: {error_msg}",
-                    metadata={'error': str(e)}
-                )
-            return {'success': False, 'error': error_msg}
+        
+        # Retry logic with exponential backoff for rate limiting
+        max_retries = 3
+        base_delay = 2.0
+        
+        for attempt in range(max_retries):
+            try:
+                # Add a small random delay before each request to help avoid rate limits
+                if attempt > 0:
+                    delay = base_delay * (2 ** attempt) + random.uniform(0, 1)
+                    logger.info(f"[Agent {self.name}] web_search: Retry {attempt + 1}/{max_retries}, waiting {delay:.1f}s")
+                    time.sleep(delay)
+                
+                results = []
+                with DDGS() as ddgs:
+                    search_results = list(ddgs.text(query, max_results=max_results))
+                    
+                    for item in search_results:
+                        results.append({
+                            'title': item.get('title', ''),
+                            'url': item.get('href', ''),
+                            'snippet': item.get('body', '')
+                        })
+                
+                logger.info(f"[Agent {self.name}] web_search: Found {len(results)} results for '{query}'")
+                
+                result = {
+                    'success': True,
+                    'query': query,
+                    'results': results,
+                    'count': len(results)
+                }
+                
+                # Store in knowledge base
+                if self.knowledge_base:
+                    self.knowledge_base.add_interaction(
+                        agent_name=self.name,
+                        interaction_type='web_search',
+                        content=f"Web search: {query}\nResults: {len(results)} found",
+                        metadata={'query': query, 'result_count': len(results)},
+                        session_id=self.session_id
+                    )
+                
+                return result
+                
+            except RatelimitException as e:
+                logger.warning(f"[Agent {self.name}] web_search: Rate limited (attempt {attempt + 1}/{max_retries})")
+                if attempt == max_retries - 1:
+                    error_msg = "DuckDuckGo rate limit exceeded. Please wait a few minutes before trying again."
+                    logger.error(f"[Agent {self.name}] web_search: {error_msg}")
+                    if self.knowledge_base:
+                        self.knowledge_base.add_interaction(
+                            agent_name=self.name,
+                            interaction_type='web_search',
+                            content=f"Web search: {query}\nError: Rate limited",
+                            metadata={'error': 'rate_limit'},
+                            session_id=self.session_id
+                        )
+                    return {'success': False, 'error': error_msg}
+                # Continue to next retry attempt
+                
+            except Exception as e:
+                error_str = str(e)
+                # Check if this is a rate limit error that wasn't caught by RatelimitException
+                if 'Ratelimit' in error_str or '202' in error_str:
+                    logger.warning(f"[Agent {self.name}] web_search: Rate limited (attempt {attempt + 1}/{max_retries})")
+                    if attempt == max_retries - 1:
+                        error_msg = "DuckDuckGo rate limit exceeded. Please wait a few minutes before trying again."
+                        logger.error(f"[Agent {self.name}] web_search: {error_msg}")
+                        if self.knowledge_base:
+                            self.knowledge_base.add_interaction(
+                                agent_name=self.name,
+                                interaction_type='web_search',
+                                content=f"Web search: {query}\nError: Rate limited",
+                                metadata={'error': 'rate_limit'},
+                                session_id=self.session_id
+                            )
+                        return {'success': False, 'error': error_msg}
+                    # Continue to next retry attempt
+                else:
+                    # Non-rate-limit error, don't retry
+                    error_msg = f"Error performing web search: {error_str}"
+                    logger.exception(f"[Agent {self.name}] web_search EXCEPTION: {error_msg}")
+                    if self.knowledge_base:
+                        self.knowledge_base.add_interaction(
+                            agent_name=self.name,
+                            interaction_type='web_search',
+                            content=f"Web search: {query}\nError: {error_msg}",
+                            metadata={'error': str(e)},
+                            session_id=self.session_id
+                        )
+                    return {'success': False, 'error': error_msg}
+        
+        # Should not reach here, but just in case
+        return {'success': False, 'error': 'Search failed after all retries'}
     
     def send_message_to_agent(self, receiver_name: str, message: str) -> bool:
         """Send a message to another agent."""
@@ -1032,11 +1363,16 @@ Be concise. State your approach, execute using available tools if needed, and su
 
 Message from {sender_name}: {message_content}
 
-Respond concisely, building on progress toward the objective."""
+Take ACTION to advance the objective:
+- If {sender_name} proposed code, use write_file to implement it
+- If there's a bug, use write_file to fix it
+- Build on their work with concrete file operations
+
+Don't just discuss - execute tools to make real progress."""
         else:
             agent_message_prompt = f"""Message from '{sender_name}': {message_content}
 
-Respond concisely and helpfully."""
+Respond helpfully and take action using your tools if appropriate."""
         
         if context:
             full_prompt = f"{context}\n\n{agent_message_prompt}"
@@ -1076,7 +1412,8 @@ Respond concisely and helpfully."""
                     interaction_type='agent_chat',
                     content=f"Received from {sender_name}: {message_content}\nResponse: {response}",
                     metadata={'sender': sender_name, 'response': response},
-                    related_agent=sender_name
+                    related_agent=sender_name,
+                    session_id=self.session_id
                 )
             
             return response
@@ -1087,7 +1424,8 @@ Respond concisely and helpfully."""
                     agent_name=self.name,
                     interaction_type='agent_chat',
                     content=f"Error responding to {sender_name}: {error_msg}",
-                    metadata={'error': str(e), 'sender': sender_name}
+                    metadata={'error': str(e), 'sender': sender_name},
+                    session_id=self.session_id
                 )
             return error_msg
     
@@ -1100,6 +1438,7 @@ Respond concisely and helpfully."""
             'conversation_length': len(self.conversation_history),
             'settings': self.settings,
             'allowed_tools': self.allowed_tools,
-            'avatar_seed': self.avatar_seed
+            'avatar_seed': self.avatar_seed,
+            'session_id': self.session_id
         }
 

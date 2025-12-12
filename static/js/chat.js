@@ -407,6 +407,72 @@ async function loadAgentInfo() {
     }
 }
 
+// Copy conversation to clipboard
+function copyConversationToClipboard() {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+    
+    const messages = chatMessages.querySelectorAll('div.flex');
+    if (messages.length === 0) {
+        showCopyFeedback('No messages to copy', false);
+        return;
+    }
+    
+    let conversationText = `Conversation with ${agentName}\n`;
+    conversationText += '='.repeat(40) + '\n\n';
+    
+    messages.forEach(msgDiv => {
+        // Check if it's a user message (justify-end) or agent message (justify-start)
+        const isUserMessage = msgDiv.classList.contains('justify-end');
+        const messageContent = msgDiv.querySelector('p.whitespace-pre-wrap');
+        
+        if (messageContent) {
+            const text = messageContent.textContent.trim();
+            if (isUserMessage) {
+                conversationText += `User: ${text}\n\n`;
+            } else {
+                conversationText += `${agentName}: ${text}\n\n`;
+            }
+        }
+    });
+    
+    navigator.clipboard.writeText(conversationText.trim()).then(() => {
+        showCopyFeedback('Copied!', true);
+    }).catch(err => {
+        console.error('Failed to copy:', err);
+        showCopyFeedback('Failed to copy', false);
+    });
+}
+
+function showCopyFeedback(text, success) {
+    const copyBtnText = document.getElementById('copyBtnText');
+    const copyBtn = document.getElementById('copyConversationBtn');
+    
+    if (copyBtnText && copyBtn) {
+        const originalText = copyBtnText.textContent;
+        copyBtnText.textContent = text;
+        
+        if (success) {
+            copyBtn.classList.add('text-green-600', 'dark:text-green-400');
+        } else {
+            copyBtn.classList.add('text-red-600', 'dark:text-red-400');
+        }
+        
+        setTimeout(() => {
+            copyBtnText.textContent = originalText;
+            copyBtn.classList.remove('text-green-600', 'dark:text-green-400', 'text-red-600', 'dark:text-red-400');
+        }, 2000);
+    }
+}
+
+// Setup copy button event listener
+document.addEventListener('DOMContentLoaded', () => {
+    const copyBtn = document.getElementById('copyConversationBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', copyConversationToClipboard);
+    }
+});
+
 // Initialize only if agentName is available
 if (agentName) {
     loadChatHistory();
