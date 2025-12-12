@@ -33,6 +33,7 @@ class AgentManager:
                 try:
                     # Get tools from agent data
                     tools = agent_data.get('tools', None)
+                    avatar_seed = agent_data.get('avatar_seed', None)
                     
                     agent = EnhancedAgent(
                         name=agent_data['name'],
@@ -41,7 +42,8 @@ class AgentManager:
                         settings=agent_data['settings'],
                         knowledge_base=self.knowledge_base,
                         message_bus=self.message_bus,
-                        tools=tools
+                        tools=tools,
+                        avatar_seed=avatar_seed
                     )
                     
                     self.agents[agent_data['name']] = agent
@@ -66,7 +68,8 @@ class AgentManager:
         model: str,
         system_prompt: str = "",
         settings: Optional[Dict] = None,
-        tools: Optional[List[str]] = None
+        tools: Optional[List[str]] = None,
+        avatar_seed: Optional[str] = None
     ) -> bool:
         """Create a new agent and save to database.
         
@@ -76,6 +79,7 @@ class AgentManager:
             system_prompt: System prompt for the agent
             settings: Agent settings
             tools: List of allowed tool names. If None, all tools are allowed.
+            avatar_seed: Custom seed for avatar generation. If None, uses agent name.
         
         Returns:
             True if agent was created successfully, False otherwise
@@ -89,7 +93,8 @@ class AgentManager:
             model=model,
             system_prompt=system_prompt,
             settings=settings or {},
-            tools=tools
+            tools=tools,
+            avatar_seed=avatar_seed
         )
         
         if not success:
@@ -103,7 +108,8 @@ class AgentManager:
             settings=settings or {},
             knowledge_base=self.knowledge_base,
             message_bus=self.message_bus,
-            tools=tools
+            tools=tools,
+            avatar_seed=avatar_seed
         )
         
         self.agents[name] = agent

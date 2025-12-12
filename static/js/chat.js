@@ -3,6 +3,11 @@
 // Get agent name from window (set by template) or use fallback
 const agentName = window.agentName;
 
+// Helper to get avatar URL
+function getAvatarUrl() {
+    return `/api/avatar/${encodeURIComponent(agentName)}`;
+}
+
 // Debug logging
 console.log('Chat.js loaded. Agent name:', agentName);
 console.log('Window.agentName:', window.agentName);
@@ -33,9 +38,6 @@ async function loadChatHistory() {
         chatMessages.innerHTML = '';
         
         messages.reverse().forEach(interaction => {
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message';
-            
             const content = JSON.parse(interaction.content || '{}');
             const userMsg = content.user_message || '';
             const agentMsg = content.agent_response || '';
@@ -53,9 +55,10 @@ async function loadChatHistory() {
             
             if (agentMsg) {
                 const agentMessageDiv = document.createElement('div');
-                agentMessageDiv.className = 'flex justify-start';
+                agentMessageDiv.className = 'flex justify-start items-end gap-2';
                 agentMessageDiv.innerHTML = `
-                    <div class="max-w-[70%] bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                    <img src="${getAvatarUrl()}" alt="${agentName}" class="w-8 h-8 rounded-full flex-shrink-0 shadow-sm">
+                    <div class="max-w-[70%] bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
                         <p class="text-sm whitespace-pre-wrap">${agentMsg}</p>
                     </div>
                 `;
@@ -108,12 +111,24 @@ async function sendMessage(message) {
 function addMessageToChat(message, isUser = true) {
     const chatMessages = document.getElementById('chatMessages');
     const messageDiv = document.createElement('div');
-    messageDiv.className = isUser ? 'flex justify-end' : 'flex justify-start';
-    messageDiv.innerHTML = `
-        <div class="max-w-[70%] ${isUser ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-900'} rounded-2xl ${isUser ? 'rounded-br-sm' : 'rounded-bl-sm'} px-4 py-3 shadow-sm">
-            <p class="text-sm whitespace-pre-wrap">${message}</p>
-        </div>
-    `;
+    
+    if (isUser) {
+        messageDiv.className = 'flex justify-end';
+        messageDiv.innerHTML = `
+            <div class="max-w-[70%] bg-indigo-600 text-white rounded-2xl rounded-br-sm px-4 py-3 shadow-sm">
+                <p class="text-sm whitespace-pre-wrap">${message}</p>
+            </div>
+        `;
+    } else {
+        messageDiv.className = 'flex justify-start items-end gap-2';
+        messageDiv.innerHTML = `
+            <img src="${getAvatarUrl()}" alt="${agentName}" class="w-8 h-8 rounded-full flex-shrink-0 shadow-sm">
+            <div class="max-w-[70%] bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                <p class="text-sm whitespace-pre-wrap">${message}</p>
+            </div>
+        `;
+    }
+    
     chatMessages.appendChild(messageDiv);
     chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -160,14 +175,22 @@ document.addEventListener('DOMContentLoaded', () => {
         addMessageToChat(message, true);
         chatInput.value = '';
         
-        // Add loading message
+        // Add loading message with avatar
         const loadingId = 'loading-' + Date.now();
         const loadingDiv = document.createElement('div');
         loadingDiv.id = loadingId;
-        loadingDiv.className = 'flex justify-start';
+        loadingDiv.className = 'flex justify-start items-end gap-2';
         loadingDiv.innerHTML = `
-            <div class="max-w-[70%] bg-slate-100 text-slate-900 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
-                <p class="text-sm">Thinking...</p>
+            <img src="${getAvatarUrl()}" alt="${agentName}" class="w-8 h-8 rounded-full flex-shrink-0 shadow-sm">
+            <div class="max-w-[70%] bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                <div class="flex items-center gap-2">
+                    <div class="flex gap-1">
+                        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                        <div class="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                    </div>
+                    <p class="text-sm text-slate-500 dark:text-slate-400">Thinking...</p>
+                </div>
             </div>
         `;
         document.getElementById('chatMessages').appendChild(loadingDiv);
@@ -210,18 +233,96 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Task execution - wrapped in DOMContentLoaded
+// Task Modal and Execution - wrapped in DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    const taskModal = document.getElementById('taskModal');
+    const taskModalBackdrop = document.getElementById('taskModalBackdrop');
+    const closeTaskModal = document.getElementById('closeTaskModal');
+    const cancelTaskBtn = document.getElementById('cancelTaskBtn');
     const executeTaskBtn = document.getElementById('executeTaskBtn');
+    const executeTaskBtnText = document.getElementById('executeTaskBtnText');
     const taskInput = document.getElementById('taskInput');
     
+    // Open modal
+    if (addTaskBtn && taskModal) {
+        addTaskBtn.addEventListener('click', () => {
+            taskModal.classList.remove('hidden');
+            if (taskInput) {
+                taskInput.value = '';
+                taskInput.focus();
+            }
+        });
+    }
+    
+    // Close modal functions
+    function closeModal() {
+        if (taskModal) {
+            taskModal.classList.add('hidden');
+        }
+    }
+    
+    if (closeTaskModal) {
+        closeTaskModal.addEventListener('click', closeModal);
+    }
+    
+    if (cancelTaskBtn) {
+        cancelTaskBtn.addEventListener('click', closeModal);
+    }
+    
+    if (taskModalBackdrop) {
+        taskModalBackdrop.addEventListener('click', closeModal);
+    }
+    
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && taskModal && !taskModal.classList.contains('hidden')) {
+            closeModal();
+        }
+    });
+    
+    // Execute task
     if (executeTaskBtn && agentName) {
         executeTaskBtn.addEventListener('click', async () => {
-            const task = taskInput.value.trim();
+            const task = taskInput ? taskInput.value.trim() : '';
             if (!task) {
                 alert('Please enter a task');
                 return;
             }
+            
+            // Show loading state
+            executeTaskBtn.disabled = true;
+            if (executeTaskBtnText) {
+                executeTaskBtnText.textContent = 'Executing...';
+            }
+            executeTaskBtn.classList.add('opacity-75', 'cursor-not-allowed');
+            
+            // Close modal and show task in chat
+            closeModal();
+            
+            // Add task message to chat
+            addMessageToChat(`🎯 Task: ${task}`, true);
+            
+            // Add loading indicator in chat with avatar
+            const loadingId = 'task-loading-' + Date.now();
+            const loadingDiv = document.createElement('div');
+            loadingDiv.id = loadingId;
+            loadingDiv.className = 'flex justify-start items-end gap-2';
+            loadingDiv.innerHTML = `
+                <img src="${getAvatarUrl()}" alt="${agentName}" class="w-8 h-8 rounded-full flex-shrink-0 shadow-sm">
+                <div class="max-w-[70%] bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm border border-amber-200 dark:border-amber-800">
+                    <div class="flex items-center gap-3">
+                        <div class="flex gap-1">
+                            <div class="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
+                            <div class="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
+                            <div class="w-2 h-2 bg-amber-500 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
+                        </div>
+                        <p class="text-sm font-medium">Executing task... This may take a moment.</p>
+                    </div>
+                </div>
+            `;
+            document.getElementById('chatMessages').appendChild(loadingDiv);
+            document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
             
             try {
                 const response = await fetch(`/api/agents/${agentName}/tasks/execute`, {
@@ -233,77 +334,56 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
                 
                 const data = await response.json();
-                addMessageToChat(`Task: ${task}`, true);
-                addMessageToChat(data.result, false);
+                
+                // Remove loading message
+                const loadingMsg = document.getElementById(loadingId);
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
+                
+                // Add result to chat with special styling and avatar
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'flex justify-start items-end gap-2';
+                resultDiv.innerHTML = `
+                    <img src="${getAvatarUrl()}" alt="${agentName}" class="w-8 h-8 rounded-full flex-shrink-0 shadow-sm">
+                    <div class="max-w-[70%] bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-2xl rounded-bl-sm px-4 py-3 shadow-sm">
+                        <div class="flex items-center gap-2 mb-2 text-xs text-amber-600 dark:text-amber-400 font-medium">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            Task Completed
+                        </div>
+                        <p class="text-sm whitespace-pre-wrap">${data.result || data.error || 'Task completed'}</p>
+                    </div>
+                `;
+                document.getElementById('chatMessages').appendChild(resultDiv);
+                document.getElementById('chatMessages').scrollTop = document.getElementById('chatMessages').scrollHeight;
+                
                 if (taskInput) taskInput.value = '';
             } catch (error) {
-                alert('Error executing task: ' + error.message);
-            }
-        });
-    }
-});
-
-// File operations - wrapped in DOMContentLoaded
-document.addEventListener('DOMContentLoaded', () => {
-    const readFileBtn = document.getElementById('readFileBtn');
-    const listDirBtn = document.getElementById('listDirBtn');
-    const filePath = document.getElementById('filePath');
-    const fileResult = document.getElementById('fileResult');
-    
-    if (readFileBtn && agentName) {
-        readFileBtn.addEventListener('click', async () => {
-            const path = filePath ? filePath.value.trim() : '';
-            if (!path) {
-                alert('Please enter a file path');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`/api/agents/${agentName}/files/read`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ path })
-                });
+                // Remove loading message
+                const loadingMsg = document.getElementById(loadingId);
+                if (loadingMsg) {
+                    loadingMsg.remove();
+                }
                 
-                const data = await response.json();
-                if (fileResult) {
-                    if (data.success) {
-                        fileResult.innerHTML = `<pre class="text-xs text-slate-700 whitespace-pre-wrap">${data.content}</pre>`;
-                    } else {
-                        fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${data.error}</p>`;
-                    }
+                addMessageToChat(`❌ Error executing task: ${error.message}`, false);
+            } finally {
+                // Reset button state
+                executeTaskBtn.disabled = false;
+                if (executeTaskBtnText) {
+                    executeTaskBtnText.textContent = 'Execute Task';
                 }
-            } catch (error) {
-                if (fileResult) {
-                    fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${error.message}</p>`;
-                }
+                executeTaskBtn.classList.remove('opacity-75', 'cursor-not-allowed');
             }
         });
     }
     
-    if (listDirBtn && agentName) {
-        listDirBtn.addEventListener('click', async () => {
-            const path = filePath ? (filePath.value.trim() || '.') : '.';
-            
-            try {
-                const response = await fetch(`/api/agents/${agentName}/files?path=${encodeURIComponent(path)}`);
-                const data = await response.json();
-                if (fileResult) {
-                    if (data.success) {
-                        const items = data.items.map(item => 
-                            `${item.type === 'directory' ? '📁' : '📄'} ${item.name}${item.size ? ` (${item.size} bytes)` : ''}`
-                        ).join('\n');
-                        fileResult.innerHTML = `<pre class="text-xs text-slate-700 whitespace-pre-wrap">${items}</pre>`;
-                    } else {
-                        fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${data.error}</p>`;
-                    }
-                }
-            } catch (error) {
-                if (fileResult) {
-                    fileResult.innerHTML = `<p class="text-sm text-red-600">Error: ${error.message}</p>`;
-                }
+    // Allow Enter+Ctrl/Cmd to submit task
+    if (taskInput) {
+        taskInput.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter' && executeTaskBtn) {
+                executeTaskBtn.click();
             }
         });
     }

@@ -191,9 +191,18 @@ class KnowledgeBase:
                 system_prompt TEXT,
                 settings TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                avatar_seed TEXT
             )
         ''')
+        
+        # Migrate existing agents table - add avatar_seed column if it doesn't exist
+        try:
+            cursor.execute("SELECT avatar_seed FROM agents LIMIT 1")
+        except sqlite3.OperationalError:
+            # Column doesn't exist, add it
+            cursor.execute("ALTER TABLE agents ADD COLUMN avatar_seed TEXT")
+            print("[KnowledgeBase] Added avatar_seed column to agents table")
         
         # Sessions table for tracking conversation sessions
         cursor.execute('''
@@ -596,7 +605,8 @@ class KnowledgeBase:
         model: str,
         system_prompt: str = "",
         settings: Optional[Dict[str, Any]] = None,
-        tools: Optional[List[str]] = None
+        tools: Optional[List[str]] = None,
+        avatar_seed: Optional[str] = None
     ) -> bool:
         """Save an agent to the database.
         
@@ -606,6 +616,7 @@ class KnowledgeBase:
             system_prompt: System prompt for the agent
             settings: Agent settings
             tools: List of allowed tool names. If None, all tools are allowed.
+            avatar_seed: Custom seed for avatar generation. If None, uses agent name.
         
         Returns:
             True if agent was saved successfully, False otherwise
@@ -626,21 +637,22 @@ class KnowledgeBase:
                 # Update existing agent
                 cursor.execute('''
                     UPDATE agents 
-                    SET model = ?, system_prompt = ?, settings = ?, tools = ?, updated_at = ?
+                    SET model = ?, system_prompt = ?, settings = ?, tools = ?, avatar_seed = ?, updated_at = ?
                     WHERE name = ?
-                ''', (model, system_prompt, settings_json, tools_json, timestamp, name))
+                ''', (model, system_prompt, settings_json, tools_json, avatar_seed, timestamp, name))
             else:
                 # Insert new agent
                 cursor.execute('''
                     INSERT INTO agents 
-                    (name, model, system_prompt, settings, created_at, updated_at, tools)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                ''', (name, model, system_prompt, settings_json, timestamp, timestamp, tools_json))
+                    (name, model, system_prompt, settings, created_at, updated_at, tools, avatar_seed)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (name, model, system_prompt, settings_json, timestamp, timestamp, tools_json, avatar_seed))
             
             conn.commit()
             conn.close()
             return True
         except Exception as e:
+            print(f"[KnowledgeBase] Error saving agent: {e}")
             conn.close()
             return False
     
@@ -677,6 +689,14 @@ class KnowledgeBase:
                     except (KeyError, json.JSONDecodeError):
                         pass  # Column doesn't exist or invalid JSON, tools will be None
                     
+                    # Check if avatar_seed column exists
+                    avatar_seed = None
+                    try:
+                        if 'avatar_seed' in row.keys():
+                            avatar_seed = row['avatar_seed']
+                    except KeyError:
+                        pass
+                    
                     agent = {
                         'name': row['name'],
                         'model': row['model'],
@@ -684,7 +704,8 @@ class KnowledgeBase:
                         'settings': json.loads(row['settings']) if row['settings'] else {},
                         'created_at': row['created_at'],
                         'updated_at': row['updated_at'],
-                        'tools': tools_data
+                        'tools': tools_data,
+                        'avatar_seed': avatar_seed
                     }
                     agents.append(agent)
                 except Exception as e:

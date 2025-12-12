@@ -8,13 +8,22 @@ Main web application for the multi-agent system with REST API and WebSocket supp
 import os
 import logging
 import threading
+import hashlib
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, Response
 from flask_socketio import SocketIO, emit
 from src.knowledge_base import KnowledgeBase
 from src.message_bus import MessageBus
 from src.agent_manager import AgentManager
 from src.conversation_orchestrator import ConversationOrchestrator
+
+# Try to import python_avatars
+try:
+    import python_avatars as pa
+    AVATARS_AVAILABLE = True
+except ImportError:
+    AVATARS_AVAILABLE = False
+    print("[WARNING] python-avatars not installed. Install with: pip install python-avatars")
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -35,6 +44,109 @@ conversation_orchestrator = ConversationOrchestrator(
     orchestrator_model='llama3.2',
     orchestrator_settings={'temperature': 0.3, 'max_tokens': 2048}
 )
+
+
+# Avatar generation helper
+def generate_avatar_svg(name: str, system_prompt: str = "") -> str:
+    """Generate a deterministic SVG avatar based on agent name and prompt."""
+    if not AVATARS_AVAILABLE:
+        # Return a simple SVG placeholder if python-avatars isn't available
+        return f'''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="#6366f1"/>
+            <text x="50" y="60" text-anchor="middle" fill="white" font-size="40" font-family="Arial">{name[0].upper()}</text>
+        </svg>'''
+    
+    # Create a hash from the name for deterministic randomness
+    hash_input = name.lower()
+    hash_bytes = hashlib.md5(hash_input.encode()).digest()
+    
+    # Use hash bytes to select avatar features deterministically
+    def pick(options, byte_index):
+        opts = list(options)
+        return opts[hash_bytes[byte_index % len(hash_bytes)] % len(opts)]
+    
+    # Avatar style options - using only confirmed available types
+    hair_types = [pa.HairType.BIG_HAIR, pa.HairType.BOB, pa.HairType.BUN,
+                  pa.HairType.CAESAR, pa.HairType.CAESAR_SIDE_PART, pa.HairType.CURLY,
+                  pa.HairType.CURVY, pa.HairType.DREADS]
+    
+    eye_types = [pa.EyeType.DEFAULT, pa.EyeType.HAPPY, pa.EyeType.SIDE, pa.EyeType.SQUINT]
+    
+    eyebrow_types = [pa.EyebrowType.DEFAULT, pa.EyebrowType.DEFAULT_NATURAL, 
+                    pa.EyebrowType.FLAT_NATURAL, pa.EyebrowType.RAISED_EXCITED,
+                    pa.EyebrowType.RAISED_EXCITED_NATURAL, pa.EyebrowType.UNIBROW_NATURAL]
+    
+    mouth_types = [pa.MouthType.DEFAULT, pa.MouthType.SMILE, pa.MouthType.TWINKLE,
+                   pa.MouthType.SERIOUS]
+    
+    skin_colors = [pa.SkinColor.LIGHT, pa.SkinColor.PALE, pa.SkinColor.TANNED,
+                   pa.SkinColor.BROWN, pa.SkinColor.DARK_BROWN, pa.SkinColor.BLACK]
+    
+    hair_colors = [pa.HairColor.BLACK, pa.HairColor.AUBURN, pa.HairColor.BLONDE,
+                   pa.HairColor.BLONDE_GOLDEN, pa.HairColor.BROWN, pa.HairColor.BROWN_DARK,
+                   pa.HairColor.PLATINUM, pa.HairColor.RED]
+    
+    clothing_types = [pa.ClothingType.HOODIE, pa.ClothingType.BLAZER_SHIRT,
+                      pa.ClothingType.BLAZER_SWEATER, pa.ClothingType.COLLAR_SWEATER,
+                      pa.ClothingType.SHIRT_CREW_NECK, pa.ClothingType.SHIRT_V_NECK]
+    
+    clothing_colors = [pa.ClothingColor.BLACK, pa.ClothingColor.BLUE_01, pa.ClothingColor.BLUE_02,
+                       pa.ClothingColor.BLUE_03, pa.ClothingColor.GRAY_01, pa.ClothingColor.GRAY_02,
+                       pa.ClothingColor.HEATHER, pa.ClothingColor.PASTEL_BLUE, pa.ClothingColor.PASTEL_GREEN,
+                       pa.ClothingColor.PASTEL_ORANGE, pa.ClothingColor.PASTEL_YELLOW,
+                       pa.ClothingColor.PINK, pa.ClothingColor.RED, pa.ClothingColor.WHITE]
+    
+    background_colors = ['#6366f1', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b', 
+                         '#ef4444', '#ec4899', '#3b82f6', '#14b8a6', '#f97316']
+    
+    # Determine if avatar should have facial hair based on name characteristics
+    has_facial_hair = hash_bytes[7] > 200
+    
+    try:
+        # Select features based on hash
+        avatar = pa.Avatar(
+            style=pa.AvatarStyle.CIRCLE,
+            background_color=background_colors[hash_bytes[0] % len(background_colors)],
+            top=pick(hair_types, 1),
+            eyebrows=pick(eyebrow_types, 2),
+            eyes=pick(eye_types, 3),
+            nose=pa.NoseType.DEFAULT,
+            mouth=pick(mouth_types, 4),
+            facial_hair=pa.FacialHairType.BEARD_LIGHT if has_facial_hair else pa.FacialHairType.NONE,
+            skin_color=pick(skin_colors, 5),
+            hair_color=pick(hair_colors, 6),
+            accessory=pa.AccessoryType.NONE,
+            clothing=pick(clothing_types, 8),
+            clothing_color=pick(clothing_colors, 9)
+        )
+        
+        return avatar.render()
+    except Exception as e:
+        # Fallback to simple avatar on any error
+        print(f"[Avatar] Error generating avatar for {name}: {e}")
+        return f'''<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="50" cy="50" r="45" fill="#6366f1"/>
+            <text x="50" y="60" text-anchor="middle" fill="white" font-size="40" font-family="Arial">{name[0].upper()}</text>
+        </svg>'''
+
+
+@app.route('/api/avatar/<agent_name>')
+def get_agent_avatar(agent_name):
+    """Get SVG avatar for an agent."""
+    # Get agent details for avatar seed
+    avatar_seed = agent_name  # Default to agent name
+    system_prompt = ""
+    
+    if agent_manager.agent_exists(agent_name):
+        agent = agent_manager.get_agent(agent_name)
+        if agent:
+            system_prompt = agent.system_prompt or ""
+            # Use custom avatar seed if available
+            if hasattr(agent, 'avatar_seed') and agent.avatar_seed:
+                avatar_seed = agent.avatar_seed
+    
+    svg_content = generate_avatar_svg(avatar_seed, system_prompt)
+    return Response(svg_content, mimetype='image/svg+xml')
 
 
 @app.route('/')
@@ -106,7 +218,7 @@ def create_agent():
     
     # Validate tools if provided
     if tools is not None:
-        available_tools = ['write_file', 'read_file', 'list_directory']
+        available_tools = ['write_file', 'read_file', 'list_directory', 'web_search']
         invalid_tools = [t for t in tools if t not in available_tools]
         if invalid_tools:
             return jsonify({
@@ -155,6 +267,7 @@ def update_agent(agent_name):
     system_prompt = data.get('system_prompt')
     settings = data.get('settings', {})
     tools = data.get('tools')
+    avatar_seed = data.get('avatar_seed')
     
     # If name is changing, check if new name is available
     if new_name != agent_name and agent_manager.agent_exists(new_name):
@@ -162,7 +275,7 @@ def update_agent(agent_name):
     
     # Validate tools if provided
     if tools is not None:
-        available_tools = ['write_file', 'read_file', 'list_directory']
+        available_tools = ['write_file', 'read_file', 'list_directory', 'web_search']
         invalid_tools = [t for t in tools if t not in available_tools]
         if invalid_tools:
             return jsonify({
@@ -192,10 +305,15 @@ def update_agent(agent_name):
             tool for tool in tools 
             if tool in EnhancedAgent.AVAILABLE_TOOLS
         ]
+    if avatar_seed is not None:
+        agent.avatar_seed = avatar_seed
     
     # If name changed, update in manager
     if new_name != agent_name:
         agent.name = new_name
+        # Update avatar_seed if it was using the old name as default
+        if agent.avatar_seed == agent_name:
+            agent.avatar_seed = new_name
         # Update in agent manager's registry
         agent_manager.agents[new_name] = agent_manager.agents.pop(agent_name)
         # Update in message bus
@@ -208,7 +326,8 @@ def update_agent(agent_name):
         model=agent.model,
         system_prompt=agent.system_prompt,
         settings=agent.settings,
-        tools=agent.allowed_tools if agent.allowed_tools else None
+        tools=agent.allowed_tools if agent.allowed_tools else None,
+        avatar_seed=agent.avatar_seed
     )
     
     return jsonify({'message': 'Agent updated successfully', 'agent': agent.get_info()})
@@ -245,56 +364,80 @@ def get_chat_history(agent_name):
 def send_chat_message(agent_name):
     """Send a chat message to an agent."""
     try:
+        app.logger.info(f"[API] POST /api/agents/{agent_name}/chat - Starting chat request")
+        
         if not agent_manager.agent_exists(agent_name):
+            app.logger.warning(f"[API] Agent '{agent_name}' not found")
             return jsonify({'error': 'Agent not found'}), 404
         
         if not request.json:
+            app.logger.warning(f"[API] Request body is not JSON")
             return jsonify({'error': 'Request body must be JSON'}), 400
         
         data = request.json
         message = data.get('message', '')
         
         if not message:
+            app.logger.warning(f"[API] Empty message received")
             return jsonify({'error': 'Message is required'}), 400
+        
+        app.logger.info(f"[API] Agent '{agent_name}' received message: '{message[:100]}...'")
         
         agent = agent_manager.get_agent(agent_name)
         
         if not agent:
+            app.logger.error(f"[API] Agent instance not found for '{agent_name}'")
             return jsonify({'error': 'Agent instance not found'}), 500
         
+        app.logger.info(f"[API] Agent '{agent_name}' tools: {agent.allowed_tools}")
+        
         try:
+            app.logger.info(f"[API] Calling agent.chat() for '{agent_name}'")
             response = agent.chat(message)
+            app.logger.info(f"[API] Agent '{agent_name}' response received, length={len(response)} chars")
+            app.logger.debug(f"[API] Response preview: {response[:200]}...")
             return jsonify({
                 'response': response,
                 'agent_name': agent_name
             })
         except Exception as e:
             # Log the error for debugging
-            app.logger.error(f"Error in agent chat: {str(e)}", exc_info=True)
+            app.logger.error(f"[API] Error in agent chat for '{agent_name}': {str(e)}", exc_info=True)
             return jsonify({
                 'error': f'Agent error: {str(e)}',
                 'response': f'Error: {str(e)}'
             }), 500
             
     except Exception as e:
-        app.logger.error(f"Error in send_chat_message: {str(e)}", exc_info=True)
+        app.logger.error(f"[API] Error in send_chat_message: {str(e)}", exc_info=True)
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 
 @app.route('/api/agents/<agent_name>/tasks/execute', methods=['POST'])
 def execute_task(agent_name):
     """Execute a task with an agent."""
+    app.logger.info(f"[API] POST /api/agents/{agent_name}/tasks/execute - Starting task execution")
+    
     if not agent_manager.agent_exists(agent_name):
+        app.logger.warning(f"[API] Agent '{agent_name}' not found for task execution")
         return jsonify({'error': 'Agent not found'}), 404
     
     data = request.json
     task = data.get('task', '')
     
     if not task:
+        app.logger.warning(f"[API] Empty task received")
         return jsonify({'error': 'Task is required'}), 400
     
+    app.logger.info(f"[API] Agent '{agent_name}' executing task: '{task[:100]}...'")
+    
     agent = agent_manager.get_agent(agent_name)
+    app.logger.info(f"[API] Agent '{agent_name}' tools for task: {agent.allowed_tools}")
+    
     result = agent.execute_task(task)
+    
+    app.logger.info(f"[API] Agent '{agent_name}' task complete, result length={len(result)} chars")
+    app.logger.debug(f"[API] Task result preview: {result[:200]}...")
     
     return jsonify({
         'result': result,
@@ -861,20 +1004,64 @@ def handle_agent_message(data):
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """Get system statistics."""
+    """Get system statistics with detailed metrics."""
     agents = agent_manager.list_agents()
     
     # Get total message count from knowledge base
-    # Count all interactions (user_chat, agent_chat, task_execution, etc.)
     try:
         interactions = knowledge_base.get_interactions(limit=100000)
         total_messages = len(interactions)
-    except:
+        
+        # Get recent activity (last 5 items)
+        recent = interactions[:5] if interactions else []
+        recent_activity = []
+        for item in recent:
+            timestamp = item.get('timestamp', '')
+            # Format timestamp to relative time
+            try:
+                from datetime import datetime
+                dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+                now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now()
+                diff = now - dt
+                if diff.days > 0:
+                    time_str = f"{diff.days}d ago"
+                elif diff.seconds > 3600:
+                    time_str = f"{diff.seconds // 3600}h ago"
+                elif diff.seconds > 60:
+                    time_str = f"{diff.seconds // 60}m ago"
+                else:
+                    time_str = "just now"
+            except:
+                time_str = "recently"
+            
+            content = item.get('content', '')[:80]
+            if len(item.get('content', '')) > 80:
+                content += '...'
+            
+            recent_activity.append({
+                'type': item.get('interaction_type', 'unknown'),
+                'content': f"{item.get('agent_name', 'Unknown')}: {content}",
+                'time': time_str
+            })
+        
+        # Count by interaction type for tool distribution
+        type_counts = {}
+        for item in interactions:
+            itype = item.get('interaction_type', 'unknown')
+            type_counts[itype] = type_counts.get(itype, 0) + 1
+        
+    except Exception as e:
+        print(f"Error getting stats: {e}")
         total_messages = 0
+        recent_activity = []
+        type_counts = {}
     
     return jsonify({
         'agents_count': len(agents),
-        'messages_count': total_messages
+        'messages_count': total_messages,
+        'knowledge_count': total_messages,
+        'recent_activity': recent_activity,
+        'interaction_types': type_counts
     })
 
 

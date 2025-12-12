@@ -136,6 +136,7 @@ data/*.db-shm
 
 # Agent-generated code
 agent_code/
+agent_context/
 
 # IDE - VSCode
 .vscode/
