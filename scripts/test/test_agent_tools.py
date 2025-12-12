@@ -27,7 +27,7 @@ class TestToolDefinitions(unittest.TestCase):
     
     def test_available_tools_defined(self):
         """Test that all expected tools are defined."""
-        expected_tools = {'write_file', 'read_file', 'list_directory', 'web_search'}
+        expected_tools = {'write_file', 'read_file', 'create_folder', 'list_directory', 'web_search'}
         self.assertEqual(set(EnhancedAgent.AVAILABLE_TOOLS.keys()), expected_tools)
     
     def test_all_tools_have_descriptions(self):
@@ -97,6 +97,7 @@ class TestToolsInfo(unittest.TestCase):
         
         self.assertIn('read_file', tools_info)
         self.assertIn('write_file', tools_info)
+        self.assertIn('create_folder', tools_info)
         self.assertIn('list_directory', tools_info)
         self.assertIn('web_search', tools_info)
     
@@ -228,6 +229,71 @@ class TestWriteFile(unittest.TestCase):
         result = self.agent.write_file(test_path, content)
         
         self.assertEqual(result['size'], len(content))
+
+
+class TestCreateFolder(unittest.TestCase):
+    """Test the create_folder tool."""
+    
+    def setUp(self):
+        """Set up test fixtures."""
+        self.agent = EnhancedAgent(name="test", model="test", tools=['create_folder'])
+        self.temp_dir = tempfile.mkdtemp()
+    
+    def tearDown(self):
+        """Clean up test fixtures."""
+        shutil.rmtree(self.temp_dir)
+    
+    def test_create_folder_returns_success(self):
+        """Test that create_folder returns success for valid folder."""
+        test_path = os.path.join(self.temp_dir, 'new_folder')
+        result = self.agent.create_folder(test_path)
+        
+        self.assertTrue(result['success'])
+        self.assertIn('path', result)
+    
+    def test_create_folder_creates_directory(self):
+        """Test that create_folder actually creates the directory."""
+        test_path = os.path.join(self.temp_dir, 'created_folder')
+        self.agent.create_folder(test_path)
+        
+        self.assertTrue(os.path.exists(test_path))
+        self.assertTrue(os.path.isdir(test_path))
+    
+    def test_create_folder_creates_parent_directories(self):
+        """Test that create_folder creates parent directories if needed."""
+        test_path = os.path.join(self.temp_dir, 'parent', 'child', 'grandchild')
+        result = self.agent.create_folder(test_path)
+        
+        self.assertTrue(result['success'])
+        self.assertTrue(os.path.exists(test_path))
+        self.assertTrue(os.path.isdir(test_path))
+    
+    def test_create_folder_empty_path_fails(self):
+        """Test that empty folder path returns error."""
+        result = self.agent.create_folder('')
+        
+        self.assertFalse(result['success'])
+        self.assertIn('empty', result['error'].lower())
+    
+    def test_create_folder_existing_directory_ok(self):
+        """Test that creating an existing directory succeeds (exist_ok=True)."""
+        test_path = os.path.join(self.temp_dir, 'existing_folder')
+        os.makedirs(test_path)
+        
+        result = self.agent.create_folder(test_path)
+        
+        self.assertTrue(result['success'])
+    
+    def test_create_folder_over_file_fails(self):
+        """Test that creating folder over existing file fails."""
+        test_path = os.path.join(self.temp_dir, 'existing_file')
+        with open(test_path, 'w') as f:
+            f.write('content')
+        
+        result = self.agent.create_folder(test_path)
+        
+        self.assertFalse(result['success'])
+        self.assertIn('file', result['error'].lower())
 
 
 class TestListDirectory(unittest.TestCase):
@@ -716,6 +782,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestToolsInfo))
     suite.addTests(loader.loadTestsFromTestCase(TestReadFile))
     suite.addTests(loader.loadTestsFromTestCase(TestWriteFile))
+    suite.addTests(loader.loadTestsFromTestCase(TestCreateFolder))
     suite.addTests(loader.loadTestsFromTestCase(TestListDirectory))
     suite.addTests(loader.loadTestsFromTestCase(TestWebSearch))
     suite.addTests(loader.loadTestsFromTestCase(TestWebSearchMocked))

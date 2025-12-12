@@ -326,6 +326,7 @@ class EnhancedAgent:
     AVAILABLE_TOOLS = {
         'write_file': 'Write content to a file',
         'read_file': 'Read a file\'s contents',
+        'create_folder': 'Create a new folder/directory',
         'list_directory': 'List directory contents',
         'web_search': 'Search the web for information'
     }
@@ -441,6 +442,11 @@ class EnhancedAgent:
         if 'read_file' in self.allowed_tools:
             tools_lines.append('READ FILE:')
             tools_lines.append('<TOOL_CALL tool="read_file">{"path": "filename.py"}</TOOL_CALL>')
+            tools_lines.append('')
+        
+        if 'create_folder' in self.allowed_tools:
+            tools_lines.append('CREATE FOLDER (creates a new directory):')
+            tools_lines.append('<TOOL_CALL tool="create_folder">{"path": "folder_name"}</TOOL_CALL>')
             tools_lines.append('')
         
         if 'list_directory' in self.allowed_tools:
@@ -882,6 +888,9 @@ class EnhancedAgent:
                 elif tool_name == 'read_file':
                     logger.info(f"[Agent {self.name}] Calling read_file(path='{params.get('path', '')}')")
                     result = self.read_file(params.get('path', ''))
+                elif tool_name == 'create_folder':
+                    logger.info(f"[Agent {self.name}] Calling create_folder(path='{params.get('path', '')}')")
+                    result = self.create_folder(params.get('path', ''))
                 elif tool_name == 'list_directory':
                     logger.info(f"[Agent {self.name}] Calling list_directory(path='{params.get('path', '.')}')")
                     result = self.list_directory(params.get('path', '.'))
@@ -1166,6 +1175,77 @@ INSTRUCTIONS:
                     agent_name=self.name,
                     interaction_type='file_operation',
                     content=f"Write file: {file_path}\nError: {error_msg}",
+                    metadata={'error': str(e)},
+                    session_id=self.session_id
+                )
+            return {'success': False, 'error': error_msg}
+    
+    def create_folder(self, folder_path: str) -> Dict[str, Any]:
+        """Create a new folder/directory."""
+        logger.info(f"[Agent {self.name}] create_folder called with path='{folder_path}'")
+        try:
+            if not folder_path:
+                return {'success': False, 'error': 'Folder path cannot be empty'}
+            
+            path = Path(folder_path)
+            logger.debug(f"[Agent {self.name}] create_folder: Original path: {path}, is_absolute: {path.is_absolute()}")
+            
+            # If path is relative, make it absolute within agent_code
+            if not path.is_absolute():
+                workspace_root = Path(__file__).parent
+                logger.debug(f"[Agent {self.name}] create_folder: workspace_root={workspace_root}")
+                
+                if not str(path).startswith('agent_code'):
+                    path = workspace_root / 'agent_code' / path
+                    logger.debug(f"[Agent {self.name}] create_folder: Prepended agent_code, new path={path}")
+                else:
+                    path = workspace_root / path
+                    logger.debug(f"[Agent {self.name}] create_folder: Path already has agent_code, new path={path}")
+            
+            # Check if path already exists as a file
+            if path.exists() and path.is_file():
+                error_msg = f"Cannot create folder: '{path}' already exists as a file"
+                logger.error(f"[Agent {self.name}] create_folder: {error_msg}")
+                return {'success': False, 'error': error_msg}
+            
+            # Check if any parent path component is a file
+            for parent in path.parents:
+                if parent.exists() and parent.is_file():
+                    error_msg = f"Cannot create folder: parent path '{parent}' is a file, not a directory"
+                    logger.error(f"[Agent {self.name}] create_folder: {error_msg}")
+                    return {'success': False, 'error': error_msg}
+            
+            # Create the directory (and any parent directories)
+            logger.info(f"[Agent {self.name}] create_folder: Creating directory: {path}")
+            path.mkdir(parents=True, exist_ok=True)
+            
+            # Verify directory was created
+            if path.exists() and path.is_dir():
+                logger.info(f"[Agent {self.name}] create_folder: SUCCESS - Folder created at {path}")
+            else:
+                logger.error(f"[Agent {self.name}] create_folder: Folder does not exist after creation attempt: {path}")
+            
+            result = {'success': True, 'path': str(path)}
+            
+            # Store in knowledge base
+            if self.knowledge_base:
+                self.knowledge_base.add_interaction(
+                    agent_name=self.name,
+                    interaction_type='file_operation',
+                    content=f"Create folder: {folder_path}\nActual path: {path}",
+                    metadata={'operation': 'create_folder', 'path': folder_path, 'actual_path': str(path)},
+                    session_id=self.session_id
+                )
+            
+            return result
+        except Exception as e:
+            error_msg = f"Error creating folder: {str(e)}"
+            logger.exception(f"[Agent {self.name}] create_folder EXCEPTION: {error_msg}")
+            if self.knowledge_base:
+                self.knowledge_base.add_interaction(
+                    agent_name=self.name,
+                    interaction_type='file_operation',
+                    content=f"Create folder: {folder_path}\nError: {error_msg}",
                     metadata={'error': str(e)},
                     session_id=self.session_id
                 )
